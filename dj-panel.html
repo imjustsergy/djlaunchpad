@@ -244,6 +244,83 @@ input[type=range]:hover::-webkit-slider-thumb{transform:scale(1.25)}
   opacity:0;letter-spacing:.04em;
 }
 #toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+
+/* ── MAPPING OVERLAY ─────────────────────── */
+#map-overlay{
+  display:none;position:fixed;inset:0;z-index:50;
+  background:var(--bg);flex-direction:column;overflow:hidden;
+}
+#map-overlay.vis{display:flex}
+#map-hdr{
+  background:var(--s1);border-bottom:2px solid var(--s4);
+  height:38px;padding:0 14px;display:flex;align-items:center;gap:10px;flex-shrink:0;
+}
+#map-body{
+  flex:1;min-height:0;overflow-y:auto;
+  display:flex;gap:20px;padding:16px 18px;align-items:flex-start;
+}
+#map-left{flex-shrink:0;display:flex;flex-direction:column;gap:8px}
+#map-right{flex:1;min-width:240px;max-width:420px;display:flex;flex-direction:column;gap:0}
+.map-stitle{font-size:8px;letter-spacing:.2em;color:var(--dim);text-transform:uppercase;margin-bottom:6px}
+.map-sub{font-size:9px;color:var(--dim);margin-bottom:8px}
+
+/* Grid */
+#lp-grid{display:flex;flex-direction:column;gap:2px}
+.lp-row{display:flex;gap:2px}
+.lp-pad{
+  width:44px;height:44px;border-radius:4px;
+  border:1px solid var(--s4);background:var(--s2);
+  cursor:pointer;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:1px;
+  transition:filter .1s;user-select:none;overflow:hidden;
+}
+.lp-pad:hover{filter:brightness(.9)}
+.lp-pad-lbl{font-size:7.5px;font-weight:700;text-align:center;line-height:1.2;padding:0 2px}
+.lp-pad-note{font-size:6px;opacity:.5}
+.lp-pad.cc{height:26px;border-radius:2px}
+.lp-pad.learning{
+  outline:2px solid var(--ac);outline-offset:1px;
+  animation:lp-learn .45s ease-in-out infinite alternate;
+}
+@keyframes lp-learn{to{outline-color:var(--achi);box-shadow:0 0 8px rgba(109,40,217,.45)}}
+
+/* Legend */
+.map-legend{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}
+.leg{font-size:7.5px;padding:2px 7px;border-radius:2px;font-weight:700;letter-spacing:.07em}
+.leg.transport{background:#ede9fe;color:#5b21b6}
+.leg.hotcue   {background:#fee2e2;color:#991b1b}
+.leg.loop     {background:#d1fae5;color:#065f46}
+.leg.fx       {background:#fef3c7;color:#92400e}
+
+/* Action list */
+#map-action-list{display:flex;flex-direction:column}
+.ma-cat{
+  font-size:8px;letter-spacing:.18em;font-weight:700;text-transform:uppercase;
+  padding:8px 0 4px 8px;border-left:2px solid;margin-bottom:2px;
+}
+.ma-row{
+  display:flex;align-items:center;gap:6px;
+  padding:5px 8px;border-radius:3px;border:1px solid transparent;
+  transition:background .1s;margin-bottom:1px;
+}
+.ma-row:hover{background:var(--s2)}
+.ma-row.learning{background:var(--aclo);border-color:var(--ac)}
+.ma-lbl {font-size:10px;font-weight:700;min-width:52px;color:var(--text)}
+.ma-desc{font-size:9px;color:var(--dim);flex:1}
+.ma-note{font-size:9px;color:var(--mid);min-width:48px;text-align:right}
+.ma-btn{
+  background:var(--s3);border:1px solid var(--s5);color:var(--mid);
+  padding:3px 9px;border-radius:2px;cursor:pointer;
+  font-family:inherit;font-size:9px;letter-spacing:.06em;transition:all .1s;white-space:nowrap;
+}
+.ma-btn:hover{background:var(--s4);color:var(--text)}
+
+/* Footer */
+#map-footer{
+  background:var(--s1);border-top:1px solid var(--s4);
+  padding:8px 14px;flex-shrink:0;
+}
+#map-status{font-size:10px;color:var(--dim);letter-spacing:.04em}
 </style>
 </head>
 <body>
@@ -257,6 +334,7 @@ input[type=range]:hover::-webkit-slider-thumb{transform:scale(1.25)}
   <div class="hdim">Tracks: <b id="hdr-cnt">0</b></div>
   <div class="hright">Web Audio · File System Access</div>
   <div class="sep"></div>
+  <button class="hbtn" id="btn-mapping">⊞ MAPPING</button>
   <button class="hbtn" id="btn-midi">⚡ MIDI</button>
   <span id="lp-dot" style="font-size:9px;color:var(--dim);white-space:nowrap">○ LP</span>
 </div>
@@ -398,6 +476,38 @@ input[type=range]:hover::-webkit-slider-thumb{transform:scale(1.25)}
 </div>
 
 <div id="toast"></div>
+
+<div id="map-overlay">
+  <div id="map-hdr">
+    <div class="logo">DJFX</div>
+    <div class="sep"></div>
+    <span style="font-size:10px;letter-spacing:.2em;color:var(--mid)">MIDI MAPPING</span>
+    <div style="margin-left:auto;display:flex;gap:6px">
+      <button class="hbtn" id="btn-map-reset">↺ Restaurar defecto</button>
+      <button class="hbtn" id="btn-map-close">✕ Cerrar</button>
+    </div>
+  </div>
+  <div id="map-body">
+    <div id="map-left">
+      <div class="map-stitle">Launchpad Mini</div>
+      <div class="map-sub">Click en un pad coloreado para reasignarlo · pads grises = sin asignar</div>
+      <div id="lp-grid"></div>
+      <div class="map-legend">
+        <span class="leg transport">TRANSPORT</span>
+        <span class="leg hotcue">HOT CUES</span>
+        <span class="leg loop">LOOPS</span>
+        <span class="leg fx">FX</span>
+      </div>
+    </div>
+    <div id="map-right">
+      <div class="map-stitle">Acciones disponibles</div>
+      <div id="map-action-list"></div>
+    </div>
+  </div>
+  <div id="map-footer">
+    <div id="map-status">Haz clic en "Asignar" junto a una acción, luego presiona un botón en el Launchpad.</div>
+  </div>
+</div>
 
 <script>
 'use strict';
@@ -1081,162 +1191,275 @@ document.addEventListener('keydown',e=>{
 });
 
 /* ═══════════════════════ LAUNCHPAD MINI ═══════════════════════
-   Protocol: Launchpad Mini MK1 / MK2 (classic)
-   Grid notes: row * 16 + col  (row 0 = top, col 0 = left)
-   Right-side buttons: row * 16 + 8
-   Top CC buttons: CC 104–111
-   LED color velocity: bits 5-4 = green (0-3), bits 1-0 = red (0-3)
+   Launchpad Mini MK1/MK2 · note = row*16+col · LED velocity = (green<<4)|red
  ════════════════════════════════════════════════════════════════ */
 
-const C = {             // LED color palette
-  OFF:      0,
-  RED_LO:   1, RED:   3,
-  AMB_LO:  17, AMB:  51,
-  GRN_LO:  16, GRN:  48,
-  YEL_LO:  34, YEL:  50,
-  ORG:     35,          // red full + green med ≈ orange
+// LED palette: velocity bits 5-4=green(0-3), bits 1-0=red(0-3)
+const C={OFF:0,RED_LO:1,RED:3,AMB_LO:17,AMB:51,GRN_LO:16,GRN:48,YEL_LO:34,YEL:50,ORG:35};
+
+// Action catalog — single source of truth for mapping page + dispatch
+const ACTIONS=[
+  {id:'transport.start',lbl:'⏮',      desc:'Ir al inicio',       cat:'transport'},
+  {id:'transport.prev', lbl:'◁◁',     desc:'Canción anterior',    cat:'transport'},
+  {id:'transport.play', lbl:'▶/⏸',   desc:'Play / Pausa',        cat:'transport'},
+  {id:'transport.next', lbl:'▷▷',     desc:'Canción siguiente',   cat:'transport'},
+  {id:'transport.cue',  lbl:'CUE',    desc:'Punto CUE',           cat:'transport'},
+  {id:'transport.mix',  lbl:'⇄ MIX',  desc:'Mezclar',             cat:'transport'},
+  {id:'transport.amix', lbl:'AUTO',   desc:'Auto-Mix ON/OFF',     cat:'transport'},
+  {id:'hotcue.0',       lbl:'HC 1',   desc:'Hot Cue 1',           cat:'hotcue'},
+  {id:'hotcue.1',       lbl:'HC 2',   desc:'Hot Cue 2',           cat:'hotcue'},
+  {id:'hotcue.2',       lbl:'HC 3',   desc:'Hot Cue 3',           cat:'hotcue'},
+  {id:'hotcue.3',       lbl:'HC 4',   desc:'Hot Cue 4',           cat:'hotcue'},
+  {id:'hotcue.back',    lbl:'↩ BACK', desc:'Volver posición',     cat:'hotcue'},
+  {id:'loop.1/32',      lbl:'1/32',   desc:'Loop 1/32',           cat:'loop'},
+  {id:'loop.1/16',      lbl:'1/16',   desc:'Loop 1/16',           cat:'loop'},
+  {id:'loop.1/8',       lbl:'1/8',    desc:'Loop 1/8',            cat:'loop'},
+  {id:'loop.1/4',       lbl:'1/4',    desc:'Loop 1/4',            cat:'loop'},
+  {id:'loop.off',       lbl:'LP OFF', desc:'Loop OFF',            cat:'loop'},
+  {id:'fx.filter',      lbl:'FILTER', desc:'Filter FX',           cat:'fx'},
+  {id:'fx.echo',        lbl:'ECHO',   desc:'Echo FX',             cat:'fx'},
+  {id:'fx.reverb',      lbl:'REVERB', desc:'Reverb FX',           cat:'fx'},
+  {id:'fx.flanger',     lbl:'FLANGE', desc:'Flanger FX',          cat:'fx'},
+];
+
+const DEFAULT_MAP={
+  'transport.start':0,'transport.prev':1,'transport.play':2,'transport.next':3,
+  'transport.cue':4,'transport.mix':5,'transport.amix':6,
+  'hotcue.0':16,'hotcue.1':17,'hotcue.2':18,'hotcue.3':19,'hotcue.back':20,
+  'loop.1/32':32,'loop.1/16':33,'loop.1/8':34,'loop.1/4':35,'loop.off':36,
+  'fx.filter':48,'fx.echo':49,'fx.reverb':50,'fx.flanger':51,
 };
 
-// note = row * 16 + col
-const LN = {
-  PLAY:       2,   PREV:    1,   NEXT:    3,   START:   0,
-  CUE:        4,   MIX:     5,   AMIX:    6,
-  HC0:       16,   HC1:    17,   HC2:    18,   HC3:    19,   BACK:   20,
-  LP32:      32,   LP16:   33,   LP8:    34,   LP4:    35,   LPOFF:  36,
-  FX0:       48,   FX1:    49,   FX2:    50,   FX3:    51,
-};
-const FX_NAMES = ['filter','echo','reverb','flanger'];
+// Dynamic mapping stored in localStorage
+let actionToNote=Object.assign({},DEFAULT_MAP,JSON.parse(localStorage.getItem('djfx-midi-map')||'{}'));
+function noteToActionId(note){for(const[id,n]of Object.entries(actionToNote))if(n===note)return id;return null;}
+function saveMidiMap(){localStorage.setItem('djfx-midi-map',JSON.stringify(actionToNote));}
 
-let lpIn = null, lpOut = null, lpMidi = null;
+let lpIn=null,lpOut=null,lpMidi=null;
 
-async function connectLaunchpad() {
-  if (!navigator.requestMIDIAccess) { toast('Web MIDI no soportado en este navegador'); return; }
-  try {
-    lpMidi = await navigator.requestMIDIAccess({ sysex: false });
-    lpFind();
-    lpMidi.onstatechange = lpFind;
-  } catch(e) { toast('Permiso MIDI denegado'); console.error(e); }
+async function connectLaunchpad(){
+  if(!navigator.requestMIDIAccess){toast('Web MIDI no soportado');return;}
+  try{lpMidi=await navigator.requestMIDIAccess({sysex:false});lpFind();lpMidi.onstatechange=lpFind;}
+  catch(e){toast('Permiso MIDI denegado');console.error(e);}
 }
 
-function lpFind() {
-  lpIn = null; lpOut = null;
-  for (const p of lpMidi.inputs.values())
-    if (p.name.toLowerCase().includes('launchpad')) { lpIn = p; p.onmidimessage = lpMsg; }
-  for (const p of lpMidi.outputs.values())
-    if (p.name.toLowerCase().includes('launchpad')) lpOut = p;
-
-  const ok = lpIn && lpOut;
-  $('lp-dot').textContent = ok ? '● LP' : '○ LP';
-  $('lp-dot').style.color  = ok ? 'var(--green)' : 'var(--dim)';
-  $('lp-sb').textContent   = ok ? `Launchpad: ${lpIn.name}` : 'Launchpad: desconectado';
-  $('lp-sb').style.color   = ok ? 'var(--green)' : 'var(--dim)';
-  if (ok) { lpReset(); lpSyncAll(); toast('Launchpad Mini conectado'); }
+function lpFind(){
+  lpIn=null;lpOut=null;
+  for(const p of lpMidi.inputs.values())
+    if(p.name.toLowerCase().includes('launchpad')){lpIn=p;p.onmidimessage=lpMsg;}
+  for(const p of lpMidi.outputs.values())
+    if(p.name.toLowerCase().includes('launchpad'))lpOut=p;
+  const ok=lpIn&&lpOut;
+  $('lp-dot').textContent=ok?'● LP':'○ LP';
+  $('lp-dot').style.color=ok?'var(--green)':'var(--dim)';
+  $('lp-sb').textContent=ok?`Launchpad: ${lpIn.name}`:'Launchpad: desconectado';
+  $('lp-sb').style.color=ok?'var(--green)':'var(--dim)';
+  if(ok){lpReset();lpSyncAll();toast('Launchpad Mini conectado');}
 }
 
-/* ── LED control ── */
-function lpLed(note, color) {
-  if (lpOut) lpOut.send([0x90, note, color]);
-}
-function lpReset() {
-  if (lpOut) lpOut.send([0xB0, 0, 0]); // factory reset all LEDs
-}
+function lpLed(note,color){if(lpOut)lpOut.send([0x90,note,color]);}
+function lpLedA(id,color){const n=actionToNote[id];if(n!==undefined)lpLed(n,color);}
+function lpReset(){if(lpOut)lpOut.send([0xB0,0,0]);}
 
-/* ── Full sync ── */
-function lpSyncAll() {
-  if (!lpOut) return;
-  lpLed(LN.START, C.GRN_LO);
-  lpLed(LN.PREV,  C.AMB_LO);
-  lpLed(LN.NEXT,  C.AMB_LO);
-  lpSyncPlay(); lpSyncCue(); lpSyncMix(); lpSyncAutoMix();
-  lpSyncHotCues(); lpSyncLoop(); lpSyncFx();
+function lpSyncAll(){
+  if(!lpOut)return;
+  lpLedA('transport.start',C.GRN_LO);lpLedA('transport.prev',C.AMB_LO);lpLedA('transport.next',C.AMB_LO);
+  lpSyncPlay();lpSyncCue();lpSyncMix();lpSyncAutoMix();lpSyncHotCues();lpSyncLoop();lpSyncFx();
 }
-
-function lpSyncPlay()    { lpLed(LN.PLAY, playing   ? C.GRN   : C.AMB_LO); }
-function lpSyncCue()     { lpLed(LN.CUE,  prevPos!==null ? C.RED : C.AMB_LO); }
-function lpSyncMix()     { lpLed(LN.MIX,  isFading  ? C.GRN   : C.GRN_LO); }
-function lpSyncAutoMix() { lpLed(LN.AMIX, autoMix   ? C.GRN   : C.GRN_LO); }
-
-function lpSyncHotCues() {
-  const full=[C.RED,C.AMB,C.GRN,C.ORG], dim=[C.RED_LO,C.AMB_LO,C.GRN_LO,1];
-  [LN.HC0,LN.HC1,LN.HC2,LN.HC3].forEach((n,i)=>lpLed(n, hotCues[i]!==null ? full[i] : dim[i]));
-  lpLed(LN.BACK, prevPos!==null ? C.GRN : C.GRN_LO);
+function lpSyncPlay()    {lpLedA('transport.play',playing?C.GRN:C.AMB_LO);}
+function lpSyncCue()     {lpLedA('transport.cue',prevPos!==null?C.RED:C.AMB_LO);}
+function lpSyncMix()     {lpLedA('transport.mix',isFading?C.GRN:C.GRN_LO);}
+function lpSyncAutoMix() {lpLedA('transport.amix',autoMix?C.GRN:C.GRN_LO);}
+function lpSyncHotCues(){
+  const full=[C.RED,C.AMB,C.GRN,C.ORG],dim=[C.RED_LO,C.AMB_LO,C.GRN_LO,1];
+  ['hotcue.0','hotcue.1','hotcue.2','hotcue.3'].forEach((id,i)=>lpLedA(id,hotCues[i]!==null?full[i]:dim[i]));
+  lpLedA('hotcue.back',prevPos!==null?C.GRN:C.GRN_LO);
 }
-
-function lpSyncLoop() {
-  const keys=[LN.LP32,LN.LP16,LN.LP8,LN.LP4,LN.LPOFF];
+function lpSyncLoop(){
+  const ids=['loop.1/32','loop.1/16','loop.1/8','loop.1/4','loop.off'];
   const vals=[0.03125,0.0625,0.125,0.25,null];
-  keys.forEach((n,i)=>{
-    const on = vals[i]===null ? lpBars===null : lpBars===vals[i];
-    lpLed(n, on ? C.GRN : C.GRN_LO);
-  });
+  ids.forEach((id,i)=>{const on=vals[i]===null?lpBars===null:lpBars===vals[i];lpLedA(id,on?C.GRN:C.GRN_LO);});
+}
+function lpSyncFx(){
+  ['fx.filter','fx.echo','fx.reverb','fx.flanger'].forEach(id=>
+    lpLedA(id,activeFx===id.split('.')[1]?C.AMB:C.AMB_LO));
 }
 
-function lpSyncFx() {
-  [LN.FX0,LN.FX1,LN.FX2,LN.FX3].forEach((n,i)=>
-    lpLed(n, activeFx===FX_NAMES[i] ? C.AMB : C.AMB_LO));
+let learnActionId=null;
+
+function lpMsg(e){
+  const[st,note,vel]=e.data;
+  if((st&0xF0)===0x90&&vel>0){if(learnActionId){assignLearn(note);return;}lpPress(note);}
 }
 
-/* ── Input handling ── */
-function lpMsg(e) {
-  const [st, note, vel] = e.data;
-  if ((st & 0xF0) === 0x90 && vel > 0) lpPress(note);
-}
+function lpPress(note){const id=noteToActionId(note);if(id)dispatchAction(id);}
 
-function lpPress(note) {
+function dispatchAction(id){
   ensureAudio();
-  switch (note) {
-    case LN.START: offset=0; if(playing){pause();play();} break;
-    case LN.PREV:  if(curIdx>0) loadTrack(curIdx-1,playing); break;
-    case LN.NEXT:  if(curIdx<tracks.length-1) loadTrack(curIdx+1,playing); break;
-    case LN.PLAY:
-      if(playing) pause(); else if(curBuf) play(); break;
-    case LN.CUE:
-      if(!curBuf) break;
-      if(prevPos!==null) { returnToPrev(); break; }
-      if(!playing) { cuePoint=getCur(); toast(`CUE en ${fmtT(cuePoint)}`); }
+  switch(id){
+    case 'transport.start':offset=0;if(playing){pause();play();}break;
+    case 'transport.prev': if(curIdx>0)loadTrack(curIdx-1,playing);break;
+    case 'transport.next': if(curIdx<tracks.length-1)loadTrack(curIdx+1,playing);break;
+    case 'transport.play': if(playing)pause();else if(curBuf)play();break;
+    case 'transport.cue':
+      if(!curBuf)break;
+      if(prevPos!==null){returnToPrev();break;}
+      if(!playing){cuePoint=getCur();toast(`CUE en ${fmtT(cuePoint)}`);}
       else seek(cuePoint);
       break;
-    case LN.MIX:  if(curBuf) triggerMix(); break;
-    case LN.AMIX:
+    case 'transport.mix': if(curBuf)triggerMix();break;
+    case 'transport.amix':
       autoMix=!autoMix;
       $('btn-automix').textContent=`Auto-Mix: ${autoMix?'ON':'OFF'}`;
       $('btn-automix').classList.toggle('on',autoMix);
-      toast(`Auto-Mix ${autoMix?'ON':'OFF'}`);
-      lpSyncAutoMix();
-      break;
-    case LN.HC0: jumpToHotCue(0); break;
-    case LN.HC1: jumpToHotCue(1); break;
-    case LN.HC2: jumpToHotCue(2); break;
-    case LN.HC3: jumpToHotCue(3); break;
-    case LN.BACK: returnToPrev(); break;
-    case LN.LP32:  if(curBuf) setLoop(0.03125); break;
-    case LN.LP16:  if(curBuf) setLoop(0.0625);  break;
-    case LN.LP8:   if(curBuf) setLoop(0.125);   break;
-    case LN.LP4:   if(curBuf) setLoop(0.25);    break;
-    case LN.LPOFF: clearLoop(); break;
-    case LN.FX0: case LN.FX1: case LN.FX2: case LN.FX3:
-      lpToggleFx(FX_NAMES[note - LN.FX0]); break;
+      toast(`Auto-Mix ${autoMix?'ON':'OFF'}`);lpSyncAutoMix();break;
+    case 'hotcue.0':jumpToHotCue(0);break;case 'hotcue.1':jumpToHotCue(1);break;
+    case 'hotcue.2':jumpToHotCue(2);break;case 'hotcue.3':jumpToHotCue(3);break;
+    case 'hotcue.back':returnToPrev();break;
+    case 'loop.1/32':if(curBuf)setLoop(0.03125);break;
+    case 'loop.1/16':if(curBuf)setLoop(0.0625);break;
+    case 'loop.1/8': if(curBuf)setLoop(0.125);break;
+    case 'loop.1/4': if(curBuf)setLoop(0.25);break;
+    case 'loop.off': clearLoop();break;
+    case 'fx.filter': lpToggleFx('filter');break;case 'fx.echo':lpToggleFx('echo');break;
+    case 'fx.reverb': lpToggleFx('reverb');break;case 'fx.flanger':lpToggleFx('flanger');break;
   }
 }
 
-function lpToggleFx(fx) {
-  const wasOn = activeFx === fx;
+function lpToggleFx(fx){
+  const wasOn=activeFx===fx;
   document.querySelectorAll('.fx').forEach(b=>b.classList.remove('on'));
   $('fxamt-row').classList.remove('vis');
-  if (wasOn) {
-    activeFx = null; applyFx(null, 0);
-  } else {
-    activeFx = fx;
-    const btn = document.querySelector(`[data-fx="${fx}"]`);
-    if (btn) btn.classList.add('on');
-    $('fx-lbl').textContent = fx.toUpperCase();
+  if(wasOn){activeFx=null;applyFx(null,0);}
+  else{
+    activeFx=fx;
+    const btn=document.querySelector(`[data-fx="${fx}"]`);
+    if(btn)btn.classList.add('on');
+    $('fx-lbl').textContent=fx.toUpperCase();
     $('fxamt-row').classList.add('vis');
-    applyFx(fx, +$('s-fxamt').value);
+    applyFx(fx,+$('s-fxamt').value);
   }
   lpSyncFx();
 }
 
-$('btn-midi').addEventListener('click', connectLaunchpad);
+$('btn-midi').addEventListener('click',connectLaunchpad);
+
+/* ═══════════════════════ MAPPING PAGE ═══════════════════════ */
+
+const CAT_META={
+  transport:{label:'TRANSPORT',bg:'#ede9fe',border:'#7c3aed',text:'#5b21b6'},
+  hotcue:   {label:'HOT CUES', bg:'#fee2e2',border:'#dc2626',text:'#991b1b'},
+  loop:     {label:'LOOPS',    bg:'#d1fae5',border:'#059669',text:'#065f46'},
+  fx:       {label:'FX',       bg:'#fef3c7',border:'#d97706',text:'#92400e'},
+};
+
+function openMapping(){renderMapping();$('map-overlay').classList.add('vis');}
+function closeMapping(){$('map-overlay').classList.remove('vis');cancelLearn();}
+function renderMapping(){renderLpGrid();renderActionList();}
+
+function renderLpGrid(){
+  const grid=$('lp-grid');grid.innerHTML='';
+  // CC top row (informational, not mappable yet)
+  const ccRow=document.createElement('div');ccRow.className='lp-row';
+  for(let col=0;col<8;col++){
+    const p=document.createElement('div');
+    p.className='lp-pad cc';
+    p.innerHTML=`<span class="lp-pad-lbl" style="font-size:6px;opacity:.5">CC${104+col}</span>`;
+    p.title=`CC ${104+col} (botones superiores)`;
+    ccRow.appendChild(p);
+  }
+  grid.appendChild(ccRow);
+  const gap=document.createElement('div');gap.style.height='3px';grid.appendChild(gap);
+
+  for(let row=0;row<8;row++){
+    const rowEl=document.createElement('div');rowEl.className='lp-row';
+    for(let col=0;col<8;col++){
+      const note=row*16+col;
+      const actionId=noteToActionId(note);
+      const action=actionId?ACTIONS.find(a=>a.id===actionId):null;
+      const cat=action?action.cat:null;
+      const p=document.createElement('div');
+      p.className='lp-pad';
+      p.dataset.note=note;
+      if(actionId)p.dataset.actionId=actionId;
+      if(cat&&CAT_META[cat]){
+        const m=CAT_META[cat];
+        p.style.background=m.bg;p.style.borderColor=m.border;p.style.color=m.text;
+      }
+      p.innerHTML=`<span class="lp-pad-lbl">${action?action.lbl:''}</span><span class="lp-pad-note">N${note}</span>`;
+      p.addEventListener('click',()=>{
+        const aid=noteToActionId(note);
+        if(aid)startLearn(aid);
+        else{$('map-status').textContent=`Note ${note}: sin asignar. Haz clic en "Asignar" en una acción.`;$('map-status').style.color='var(--dim)';}
+      });
+      rowEl.appendChild(p);
+    }
+    grid.appendChild(rowEl);
+  }
+}
+
+function renderActionList(){
+  const list=$('map-action-list');list.innerHTML='';
+  let curCat=null;
+  ACTIONS.forEach(a=>{
+    if(a.cat!==curCat){
+      curCat=a.cat;
+      const m=CAT_META[a.cat];
+      const hdr=document.createElement('div');
+      hdr.className='ma-cat';
+      hdr.textContent=m.label;
+      hdr.style.borderColor=m.border;hdr.style.color=m.border;
+      list.appendChild(hdr);
+    }
+    const note=actionToNote[a.id];
+    const row=document.createElement('div');
+    row.className='ma-row';
+    row.id=`mar-${a.id.replace(/[./]/g,'-')}`;
+    row.innerHTML=`<span class="ma-lbl">${a.lbl}</span><span class="ma-desc">${a.desc}</span><span class="ma-note">${note!==undefined?`Note ${note}`:'—'}</span><button class="ma-btn">Asignar</button>`;
+    row.querySelector('.ma-btn').addEventListener('click',()=>startLearn(a.id));
+    list.appendChild(row);
+  });
+}
+
+function startLearn(actionId){
+  cancelLearn();
+  learnActionId=actionId;
+  const a=ACTIONS.find(x=>x.id===actionId);
+  $('map-status').textContent=`▶ Presiona un botón en el Launchpad para asignar: ${a.lbl}`;
+  $('map-status').style.color='var(--achi)';
+  const rowEl=$(`mar-${actionId.replace(/[./]/g,'-')}`);
+  if(rowEl)rowEl.classList.add('learning');
+  document.querySelectorAll('.lp-pad[data-action-id]').forEach(p=>{
+    if(p.dataset.actionId===actionId)p.classList.add('learning');
+  });
+}
+
+function assignLearn(note){
+  if(!learnActionId)return;
+  for(const[id,n]of Object.entries(actionToNote))if(n===note&&id!==learnActionId)delete actionToNote[id];
+  actionToNote[learnActionId]=note;
+  saveMidiMap();
+  const a=ACTIONS.find(x=>x.id===learnActionId);
+  toast(`${a.lbl} → Note ${note}`);
+  cancelLearn();renderMapping();lpSyncAll();
+}
+
+function cancelLearn(){
+  learnActionId=null;
+  document.querySelectorAll('.ma-row').forEach(r=>r.classList.remove('learning'));
+  document.querySelectorAll('.lp-pad').forEach(p=>p.classList.remove('learning'));
+  const s=$('map-status');
+  if(s){s.textContent='Haz clic en "Asignar" junto a una acción, luego presiona un botón en el Launchpad.';s.style.color='var(--dim)';}
+}
+
+function resetMapping(){
+  actionToNote=Object.assign({},DEFAULT_MAP);saveMidiMap();
+  renderMapping();lpSyncAll();toast('Mapping restaurado por defecto');
+}
+
+$('btn-mapping').addEventListener('click',openMapping);
+$('btn-map-close').addEventListener('click',closeMapping);
+$('btn-map-reset').addEventListener('click',resetMapping);
 
 /* ═══════════════════════ TOAST ═══════════════════════ */
 let toastT=null;
