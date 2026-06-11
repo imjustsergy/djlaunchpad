@@ -5,21 +5,21 @@
 <title>DJ Panel</title>
 <style>
 :root {
-  --bg:    #09090e;
-  --s1:    #0d0d18;
-  --s2:    #111120;
-  --s3:    #191928;
-  --s4:    #21213a;
-  --s5:    #2c2c50;
+  --bg:    #f4f4f8;
+  --s1:    #ebebf2;
+  --s2:    #e2e2ec;
+  --s3:    #d6d6e4;
+  --s4:    #c4c4d8;
+  --s5:    #aaaac0;
   --ac:    #7c3aed;
-  --achi:  #a855f7;
-  --aclo:  #4c1d95;
-  --green: #10b981;
-  --amber: #f59e0b;
-  --red:   #ef4444;
-  --text:  #dde1f0;
-  --mid:   #8090a8;
-  --dim:   #3d4560;
+  --achi:  #6d28d9;
+  --aclo:  #ede9fe;
+  --green: #059669;
+  --amber: #d97706;
+  --red:   #dc2626;
+  --text:  #1a1a2e;
+  --mid:   #4b4b70;
+  --dim:   #8888a8;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{
@@ -38,7 +38,7 @@ body{
 }
 .logo{
   font-size:15px;font-weight:900;letter-spacing:.25em;
-  color:var(--achi);text-shadow:0 0 16px rgba(168,85,247,.5);
+  color:var(--achi);text-shadow:none;
 }
 .sep{width:1px;height:20px;background:var(--s5)}
 .hbtn{
@@ -71,7 +71,7 @@ body{
   display:flex;flex-direction:column;justify-content:space-between;
 }
 .tc:hover{background:var(--s3);border-color:var(--s5)}
-.tc.cur{border-left-color:var(--achi);background:rgba(124,58,237,.12)}
+.tc.cur{border-left-color:var(--achi);background:rgba(109,40,217,.08)}
 .tc.nxt{border-left-color:var(--green)}
 .tc-top{display:flex;gap:4px;overflow:hidden;align-items:baseline}
 .tc-n{font-size:9px;color:var(--dim);min-width:18px;flex-shrink:0}
@@ -109,11 +109,11 @@ body{
 #wfcv{display:block;width:100%;height:100%}
 #wfph{
   position:absolute;top:0;bottom:0;width:2px;
-  background:rgba(255,255,255,.85);pointer-events:none;
-  box-shadow:0 0 6px rgba(255,255,255,.4);
+  background:rgba(26,26,46,.8);pointer-events:none;
+  box-shadow:0 0 4px rgba(26,26,46,.2);
 }
-#wfrem{position:absolute;bottom:3px;left:6px;font-size:9px;color:rgba(255,255,255,.28);pointer-events:none}
-#wftime{position:absolute;bottom:3px;right:6px;font-size:9px;color:rgba(255,255,255,.45);pointer-events:none;letter-spacing:.04em}
+#wfrem{position:absolute;bottom:3px;left:6px;font-size:9px;color:rgba(26,26,46,.35);pointer-events:none}
+#wftime{position:absolute;bottom:3px;right:6px;font-size:9px;color:rgba(26,26,46,.5);pointer-events:none;letter-spacing:.04em}
 #wfempty{
   position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
   font-size:10px;color:var(--dim);letter-spacing:.08em;pointer-events:none;
@@ -130,17 +130,17 @@ body{
 .tbtn:hover{background:var(--s4);color:var(--text)}
 .tbtn.sm{width:32px;height:32px;font-size:13px}
 .tbtn.lg{width:54px;height:54px;font-size:24px;border-width:2px}
-.tbtn.lg.on{border-color:var(--ac);color:var(--achi);background:rgba(124,58,237,.15);box-shadow:0 0 16px rgba(124,58,237,.25)}
-.tbtn.cue{width:44px;height:32px;background:#7c3500;border-color:var(--amber);color:var(--amber);font-size:9px;font-weight:700;letter-spacing:.08em}
-.tbtn.cue:hover{background:#92400e}
+.tbtn.lg.on{border-color:var(--ac);color:var(--achi);background:rgba(109,40,217,.12);box-shadow:0 0 10px rgba(109,40,217,.15)}
+.tbtn.cue{width:44px;height:32px;background:rgba(217,119,6,.1);border-color:var(--amber);color:var(--amber);font-size:9px;font-weight:700;letter-spacing:.08em}
+.tbtn.cue:hover{background:rgba(217,119,6,.2)}
 .tbtn.mix{
   height:32px;padding:0 14px;
-  background:rgba(16,185,129,.15);border-color:var(--green);
+  background:rgba(5,150,105,.1);border-color:var(--green);
   color:var(--green);font-size:10px;font-weight:700;letter-spacing:.1em;
 }
-.tbtn.mix:hover{background:rgba(16,185,129,.25)}
-.tbtn.mix.fading{background:rgba(16,185,129,.3);animation:pulse .6s infinite alternate}
-@keyframes pulse{to{box-shadow:0 0 12px rgba(16,185,129,.5)}}
+.tbtn.mix:hover{background:rgba(5,150,105,.2)}
+.tbtn.mix.fading{background:rgba(5,150,105,.2);animation:pulse .6s infinite alternate}
+@keyframes pulse{to{box-shadow:0 0 10px rgba(5,150,105,.35)}}
 
 /* Hot cues */
 #hcues{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
@@ -162,7 +162,7 @@ body{
   color:var(--dim);cursor:pointer;font-family:inherit;font-size:9px;border-radius:3px;transition:all .1s;
 }
 .lpb:hover{background:var(--s3);color:var(--text)}
-.lpb.on{background:rgba(16,185,129,.18);border-color:var(--green);color:var(--green)}
+.lpb.on{background:rgba(5,150,105,.12);border-color:var(--green);color:var(--green)}
 .lpb.off.on{background:var(--s3);border-color:var(--s5);color:var(--dim)}
 
 /* Controls grid */
@@ -188,7 +188,7 @@ input[type=range]:hover::-webkit-slider-thumb{transform:scale(1.25)}
   letter-spacing:.08em;border-radius:3px;transition:all .1s;text-transform:uppercase;
 }
 .fx:hover{background:var(--s3);color:var(--text)}
-.fx.on{border-color:var(--amber);color:var(--amber);background:rgba(245,158,11,.1)}
+.fx.on{border-color:var(--amber);color:var(--amber);background:rgba(217,119,6,.08)}
 #fxamt-row{display:none;gap:6px}
 #fxamt-row.vis{display:flex}
 
@@ -210,7 +210,7 @@ input[type=range]:hover::-webkit-slider-thumb{transform:scale(1.25)}
   white-space:nowrap;
 }
 .abtn:hover{background:var(--s3);color:var(--text)}
-.abtn.on{border-color:var(--green);color:var(--green);background:rgba(16,185,129,.08)}
+.abtn.on{border-color:var(--green);color:var(--green);background:rgba(5,150,105,.08)}
 #trans-row{display:flex;align-items:center;gap:6px}
 .trans-lbl{font-size:8px;color:var(--dim);letter-spacing:.1em;white-space:nowrap}
 #trans-v{font-size:10px;color:var(--amber);min-width:22px}
@@ -744,12 +744,12 @@ function renderWf(buf) {
     const amp=Math.max(Math.abs(mn),Math.abs(mx));
     wfData[x]=amp;
     const f=Math.min(1,amp*1.8);
-    const r=(124+(168-124)*f)|0, g=(58+(85-58)*f)|0, b2=(237+(247-237)*f)|0;
-    cx.strokeStyle=`rgba(${r},${g},${b2},.7)`;
+    const r=(180+(109-180)*f)|0, g=(160+(40-160)*f)|0, b2=(220+(217-220)*f)|0;
+    cx.strokeStyle=`rgba(${r},${g},${b2},.75)`;
     cx.lineWidth=1;
     cx.beginPath(); cx.moveTo(x+.5,H/2-mx*(H/2)); cx.lineTo(x+.5,H/2-mn*(H/2)); cx.stroke();
   }
-  cx.strokeStyle='rgba(255,255,255,.05)';
+  cx.strokeStyle='rgba(0,0,0,.06)';
   cx.beginPath(); cx.moveTo(0,H/2); cx.lineTo(W,H/2); cx.stroke();
 }
 
@@ -765,11 +765,11 @@ function drawOverlay() {
     const amp=wfData[x]||0;
     const yH=H/2-amp*(H/2), yL=H/2+amp*(H/2);
     if (x<px) {
-      cx.strokeStyle='rgba(168,85,247,1)';
+      cx.strokeStyle='rgba(109,40,217,.9)';
     } else {
       const f=Math.min(1,amp*1.8);
-      const r=(124+(168-124)*f)|0,g=(58+(85-58)*f)|0,b2=(237+(247-237)*f)|0;
-      cx.strokeStyle=`rgba(${r},${g},${b2},.55)`;
+      const r=(180+(109-180)*f)|0,g=(160+(40-160)*f)|0,b2=(220+(217-220)*f)|0;
+      cx.strokeStyle=`rgba(${r},${g},${b2},.6)`;
     }
     cx.lineWidth=1; cx.beginPath(); cx.moveTo(x+.5,yH); cx.lineTo(x+.5,yL); cx.stroke();
   }
@@ -777,8 +777,8 @@ function drawOverlay() {
   // Loop region
   if (lpStart!==null&&lpEnd!==null&&duration>0) {
     const lx1=Math.floor(lpStart/duration*W), lx2=Math.ceil(lpEnd/duration*W);
-    cx.fillStyle='rgba(16,185,129,.15)'; cx.fillRect(lx1,0,lx2-lx1,H);
-    cx.strokeStyle='rgba(16,185,129,.65)'; cx.lineWidth=1; cx.strokeRect(lx1,0,lx2-lx1,H);
+    cx.fillStyle='rgba(5,150,105,.12)'; cx.fillRect(lx1,0,lx2-lx1,H);
+    cx.strokeStyle='rgba(5,150,105,.6)'; cx.lineWidth=1; cx.strokeRect(lx1,0,lx2-lx1,H);
   }
 
   // Hot cue markers
@@ -791,7 +791,7 @@ function drawOverlay() {
     cx.fillStyle=HC[i]; cx.fillRect(hx-3,0,6,6);
   });
 
-  cx.strokeStyle='rgba(255,255,255,.05)'; cx.lineWidth=1;
+  cx.strokeStyle='rgba(0,0,0,.06)'; cx.lineWidth=1;
   cx.beginPath(); cx.moveTo(0,H/2); cx.lineTo(W,H/2); cx.stroke();
 }
 
