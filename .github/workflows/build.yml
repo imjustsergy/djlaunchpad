@@ -1,0 +1,98 @@
+name: Build & Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: windows
+            goarch: amd64
+            output: djlaunchpad-windows.exe
+          - goos: darwin
+            goarch: amd64
+            output: djlaunchpad-macos-intel
+          - goos: darwin
+            goarch: arm64
+            output: djlaunchpad-macos-arm64
+          - goos: linux
+            goarch: amd64
+            output: djlaunchpad-linux
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache: false
+
+      - name: Build ${{ matrix.output }}
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: '0'
+        run: go build -ldflags="-s -w" -trimpath -o ${{ matrix.output }} .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.output }}
+          path: ${{ matrix.output }}
+          retention-days: 1
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+          path: dist/
+
+      - name: Publish latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Borrar release y tag 'latest' anteriores si existen
+          gh release delete latest --yes 2>/dev/null || true
+          git push origin :refs/tags/latest 2>/dev/null || true
+
+          # Crear release nuevo con los 4 binarios
+          gh release create latest \
+            --title "DJ Panel — Latest Build" \
+            --notes "$(cat <<'EOF'
+          ## Descarga tu plataforma
+
+          | Plataforma | Archivo |
+          |---|---|
+          | Windows | `djlaunchpad-windows.exe` |
+          | macOS Intel | `djlaunchpad-macos-intel` |
+          | macOS Apple Silicon (M1/M2/M3) | `djlaunchpad-macos-arm64` |
+          | Linux | `djlaunchpad-linux` |
+
+          ## Cómo usar
+
+          1. Descarga el ejecutable para tu sistema
+          2. **macOS/Linux:** dale permisos con `chmod +x djlaunchpad-*` y ejecútalo
+          3. Se abre una terminal con la URL y el navegador se lanza automáticamente
+          4. Carga tu directorio de canciones y empieza la sesión
+          5. `Ctrl+C` para cerrar el servidor
+
+          > Build automático desde el último commit en `main`.
+          EOF
+          )" \
+            --prerelease \
+            dist/djlaunchpad-windows.exe \
+            dist/djlaunchpad-macos-intel \
+            dist/djlaunchpad-macos-arm64 \
+            dist/djlaunchpad-linux
