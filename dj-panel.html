@@ -601,7 +601,11 @@ function getCur() {
 function play() {
   if (!curBuf||!ACX) return;
   ensureAudio();
-  if (curSrc) { try{curSrc.stop();}catch(e){} curSrc.disconnect(); }
+  if (curSrc) {
+    curSrc.onended = null; // evitar que el onended del source anterior interfiera
+    try{curSrc.stop();}catch(e){}
+    curSrc.disconnect();
+  }
 
   curSrc = ACX.createBufferSource();
   curSrc.buffer = curBuf;
@@ -616,8 +620,12 @@ function play() {
   const off = Math.max(0,Math.min(offset,duration-0.01));
   curSrc.start(0,off); startT=ACX.currentTime; playing=true;
 
+  // Capturamos la referencia al source actual en el closure.
+  // Si cuando onended dispara ya hay un source nuevo, ignoramos el evento.
+  const thisSrc = curSrc;
   curSrc.onended = () => {
-    if (playing && curSrc && !curSrc.loop) {
+    if (thisSrc !== curSrc) return; // source reemplazado, ignorar
+    if (playing && !thisSrc.loop) {
       playing=false; offset=0;
       updBtn(); updSt();
       if (autoMix) triggerMix();
@@ -628,19 +636,26 @@ function play() {
 
 function pause() {
   if (!playing||!curSrc) return;
-  offset=getCur(); try{curSrc.stop();}catch(e){}
+  offset=getCur();
+  curSrc.onended = null; // evitar disparo del onended al parar
+  try{curSrc.stop();}catch(e){}
   playing=false; updBtn(); updSt();
 }
 
 function stop(rst=true) {
-  if (curSrc){try{curSrc.stop();}catch(e){} curSrc=null;}
+  if (curSrc){
+    curSrc.onended = null;
+    try{curSrc.stop();}catch(e){}
+    curSrc=null;
+  }
   playing=false; if(rst)offset=0; updBtn(); updSt();
 }
 
 function seek(t) {
-  const was=playing; if(was)pause();
+  const was=playing;
+  if(was)pause(); // pause guarda offset y limpia onended
   offset=Math.max(0,Math.min(t,duration-0.01));
-  if(was)play();
+  if(was)play(); // play arranca desde el nuevo offset
 }
 
 function updBtn() {
@@ -691,16 +706,20 @@ function triggerMix() {
 
     setTimeout(async () => {
       // Swap: next becomes current
-      if (curSrc) { try{curSrc.stop();}catch(e){} curSrc.disconnect(); }
+      if (curSrc) {
+        curSrc.onended = null;
+        try{curSrc.stop();}catch(e){}
+        curSrc.disconnect();
+      }
       curSrc = nxtSrc; nxtSrc = null;
       curGain.gain.setValueAtTime(1, ACX.currentTime);
       nxtGain.gain.setValueAtTime(0, ACX.currentTime);
       curSrc.disconnect(); curSrc.connect(curGain);
 
-      // Update state
-      const prevBuf = curBuf;
+      // Update state — el nuevo source lleva transSecs sonando
       curIdx=ni; curBuf=nxtBuf; duration=curBuf.duration;
-      offset = 0; startT = ACX.currentTime;
+      offset = transSecs * curSrc.playbackRate.value;
+      startT = ACX.currentTime;
       nxtBuf=null; nxtBufIdx=-1;
       hotCues=[null,null,null,null]; lpBars=null; lpStart=null; lpEnd=null;
       bpm=null; cuePoint=0; wfData=null;
