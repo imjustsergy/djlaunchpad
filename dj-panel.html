@@ -162,8 +162,12 @@ body{
   color:var(--dim);cursor:pointer;font-family:inherit;font-size:9px;border-radius:3px;transition:all .1s;
 }
 .lpb:hover{background:var(--s3);color:var(--text)}
-.lpb.on{background:rgba(5,150,105,.12);border-color:var(--green);color:var(--green)}
-.lpb.off.on{background:var(--s3);border-color:var(--s5);color:var(--dim)}
+.lpb.on{background:rgba(5,150,105,.15);border-color:var(--green);color:var(--green);
+  animation:lp-pulse .7s ease-in-out infinite alternate}
+.lpb.off.on{background:var(--s3);border-color:var(--s5);color:var(--mid);animation:none}
+@keyframes lp-pulse{from{box-shadow:0 0 0 rgba(5,150,105,.2)}to{box-shadow:0 0 7px rgba(5,150,105,.55)}}
+#lp-status{font-size:8px;letter-spacing:.1em;color:var(--green);display:none;white-space:nowrap;font-weight:700}
+#lp-status.vis{display:block}
 
 /* Controls grid */
 #controls{display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:8px;align-items:end}
@@ -306,6 +310,7 @@ input[type=range]:hover::-webkit-slider-thumb{transform:scale(1.25)}
     <button class="lpb" data-bars="0.125">1/8</button>
     <button class="lpb" data-bars="0.25">1/4</button>
     <button class="lpb off on" data-bars="off">OFF</button>
+    <span id="lp-status">● LOOP</span>
   </div>
 
   <div id="controls">
@@ -842,17 +847,29 @@ function setLoop(bars) {
   if (!curBuf) return;
   const bpm2=bpm||120, spb=(60/bpm2)*4, pos=getCur();
   lpBars=bars; lpStart=pos; lpEnd=Math.min(pos+spb*bars,duration-0.001);
-  if(curSrc){curSrc.loop=true;curSrc.loopStart=lpStart;curSrc.loopEnd=lpEnd;}
+  // Seek al inicio del loop para que el playhead esté dentro del rango
+  // (crítico para loops cortos: 1/32 = ~62ms, sin seek el playhead ya lo habría pasado)
+  seek(lpStart);
+  updLp();
+  const label = bars<1 ? `1/${Math.round(1/bars)}` : bars;
+  toast(`Loop ${label} compás activo`);
 }
 function clearLoop() {
   lpBars=null;lpStart=null;lpEnd=null;
   if(curSrc)curSrc.loop=false;
+  updLp();
+  toast('Loop desactivado');
 }
 function updLp() {
   document.querySelectorAll('.lpb').forEach(b=>{
     const bv=b.dataset.bars, isOff=bv==='off';
     b.classList.toggle('on',isOff?lpBars===null:+bv===lpBars);
   });
+  const st=$('lp-status');
+  if(lpBars!==null){
+    const label=lpBars<1?`1/${Math.round(1/lpBars)}`:lpBars;
+    st.textContent=`● LOOP ${label}`;st.classList.add('vis');
+  }else{st.classList.remove('vis');}
 }
 
 /* ═══════════════════════ HOT CUES ═══════════════════════ */
@@ -956,9 +973,9 @@ $('s-fxamt').addEventListener('input',e=>{
 
 document.querySelectorAll('.lpb').forEach(btn=>{
   btn.addEventListener('click',()=>{
+    if(!curBuf)return;
     const bv=btn.dataset.bars;
-    if(bv==='off'){clearLoop();lpBars=null;}else setLoop(+bv);
-    updLp();
+    if(bv==='off')clearLoop();else setLoop(+bv);
   });
 });
 
