@@ -383,6 +383,7 @@ input[type=range]:hover::-webkit-slider-thumb{transform:scale(1.25)}
   <div class="sti"><span class="ks">←→</span> Seek ±5s</div>
   <div class="sti"><span class="ks">1–4</span> Hot cues</div>
   <div class="sti"><span class="ks">Shift+1–4</span> Marcar cue</div>
+  <div class="sti"><span class="ks">0</span> Volver posición previa</div>
   <div class="sti"><span class="ks">T</span> Tap tempo</div>
   <div class="sb-sep"></div>
   <div class="sti">Estado: <span class="stv" id="st">PARADO</span></div>
@@ -481,6 +482,7 @@ let playing = false, startT = 0, offset = 0, duration = 0;
 let hotCues = [null,null,null,null];
 let lpBars = null, lpStart = null, lpEnd = null;
 let bpm = null, cuePoint = 0, activeFx = null;
+let prevPos = null; // posición previa antes del último salto a cue
 let wfData = null;
 let autoMix = false, transSecs = 8, isFading = false;
 let tapTimes = [], tapTimer = null;
@@ -566,7 +568,7 @@ async function loadTrack(idx, autoPlay=false) {
     stop(false);
     curIdx=idx; curBuf=buf; duration=buf.duration; offset=0;
     hotCues=[null,null,null,null]; lpBars=null; lpStart=null; lpEnd=null;
-    bpm=null; cuePoint=0; wfData=null;
+    bpm=null; cuePoint=0; wfData=null; prevPos=null;
     nxtBuf=null; nxtBufIdx=-1;
 
     // Reset FX
@@ -932,8 +934,35 @@ $('btn-prev').addEventListener('click',()=>{if(curIdx>0)loadTrack(curIdx-1,playi
 $('btn-next').addEventListener('click',()=>{if(curIdx<tracks.length-1)loadTrack(curIdx+1,playing);});
 $('btn-mix').addEventListener('click',()=>{ if(curBuf)triggerMix(); });
 
+function jumpToHotCue(i) {
+  if(hotCues[i]===null)return;
+  prevPos=getCur();
+  updCueBtn();
+  seek(hotCues[i]);
+}
+
+function returnToPrev() {
+  if(prevPos===null)return;
+  const p=prevPos; prevPos=null;
+  updCueBtn();
+  seek(p);
+  toast(`Vuelto a ${fmtT(p)}`);
+}
+
+function updCueBtn() {
+  const b=$('btn-cue');
+  if(prevPos!==null){
+    b.textContent=`↩ ${fmtT(prevPos)}`;
+    b.style.cssText='background:rgba(124,58,237,.12);border-color:var(--achi);color:var(--achi)';
+  } else {
+    b.textContent='CUE';
+    b.style.cssText='';
+  }
+}
+
 $('btn-cue').addEventListener('click',()=>{
   if(!curBuf)return;
+  if(prevPos!==null){ returnToPrev(); return; }
   if(!playing){cuePoint=getCur();toast(`CUE marcado en ${fmtT(cuePoint)}`); }
   else seek(cuePoint);
 });
@@ -989,7 +1018,7 @@ document.querySelectorAll('.hc').forEach(btn=>{
     const i=+btn.dataset.i;
     if(e.ctrlKey||e.metaKey||hotCues[i]===null){
       hotCues[i]=getCur();updHC();toast(`Hot Cue ${i+1} marcado en ${fmtT(hotCues[i])}`);
-    }else seek(hotCues[i]);
+    }else jumpToHotCue(i);
   });
   btn.addEventListener('contextmenu',e=>{
     e.preventDefault();hotCues[+btn.dataset.i]=null;updHC();
@@ -1012,11 +1041,12 @@ $('s-master').addEventListener('input',e=>{
 document.addEventListener('keydown',e=>{
   if(e.target.tagName==='INPUT')return;
   // Hot cues: usar e.code para capturar Shift+dígito correctamente
+  if(e.code==='Digit0'){if(curBuf)returnToPrev();return;}
   if(['Digit1','Digit2','Digit3','Digit4'].includes(e.code)){
     if(!curBuf)return;
     const i=+e.code.slice(-1)-1;
     if(e.shiftKey){hotCues[i]=getCur();updHC();toast(`Hot Cue ${i+1} marcado en ${fmtT(hotCues[i])}`);}
-    else if(hotCues[i]!==null)seek(hotCues[i]);
+    else jumpToHotCue(i);
     return;
   }
   switch(e.key){
