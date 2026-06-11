@@ -550,6 +550,11 @@ function updNext() {
 /* ═══════════════════════ LOAD TRACK ═══════════════════════ */
 async function loadTrack(idx, autoPlay=false) {
   if (idx<0||idx>=tracks.length) return;
+  // Si auto-mix está activo y hay canción sonando, hacer crossfade en vez de corte
+  if (autoMix && playing && idx !== curIdx) {
+    triggerMix(idx);
+    return;
+  }
   ensureAudio();
   const t = tracks[idx];
   try {
@@ -671,9 +676,9 @@ function updSt() {
 }
 
 /* ═══════════════════════ MIX / TRANSITION ═══════════════════════ */
-function triggerMix() {
-  const ni=curIdx+1;
-  if (ni>=tracks.length) { toast('Fin de la sesión'); return; }
+function triggerMix(targetIdx) {
+  const ni = (targetIdx !== undefined) ? targetIdx : curIdx+1;
+  if (ni<0||ni>=tracks.length) { toast('Fin de la sesión'); return; }
   if (isFading) return;
   isFading=true;
   $('btn-mix').classList.add('fading');
