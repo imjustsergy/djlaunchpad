@@ -301,11 +301,10 @@ input[type=range]:hover::-webkit-slider-thumb{transform:scale(1.25)}
 
   <div id="lprow">
     <span class="lplbl">LOOP</span>
-    <button class="lpb" data-bars=".5">½</button>
-    <button class="lpb" data-bars="1">1</button>
-    <button class="lpb" data-bars="2">2</button>
-    <button class="lpb" data-bars="4">4</button>
-    <button class="lpb" data-bars="8">8</button>
+    <button class="lpb" data-bars="0.03125">1/32</button>
+    <button class="lpb" data-bars="0.0625">1/16</button>
+    <button class="lpb" data-bars="0.125">1/8</button>
+    <button class="lpb" data-bars="0.25">1/4</button>
     <button class="lpb off on" data-bars="off">OFF</button>
   </div>
 
@@ -990,16 +989,19 @@ $('s-master').addEventListener('input',e=>{
 /* ═══════════════════════ KEYBOARD ═══════════════════════ */
 document.addEventListener('keydown',e=>{
   if(e.target.tagName==='INPUT')return;
+  // Hot cues: usar e.code para capturar Shift+dígito correctamente
+  if(['Digit1','Digit2','Digit3','Digit4'].includes(e.code)){
+    if(!curBuf)return;
+    const i=+e.code.slice(-1)-1;
+    if(e.shiftKey){hotCues[i]=getCur();updHC();toast(`Hot Cue ${i+1} marcado en ${fmtT(hotCues[i])}`);}
+    else if(hotCues[i]!==null)seek(hotCues[i]);
+    return;
+  }
   switch(e.key){
     case ' ':e.preventDefault();ensureAudio();if(playing)pause();else if(curBuf)play();break;
     case 'm':case 'M':if(curBuf)triggerMix();break;
     case 'ArrowLeft':e.preventDefault();if(curBuf)seek(Math.max(0,getCur()-5));break;
     case 'ArrowRight':e.preventDefault();if(curBuf)seek(Math.min(duration,getCur()+5));break;
-    case '1':case '2':case '3':case '4':{
-      const i=+e.key-1;
-      if(e.shiftKey){hotCues[i]=getCur();updHC();toast(`Hot Cue ${i+1} marcado`);}
-      else if(hotCues[i]!==null)seek(hotCues[i]);break;
-    }
     case 't':case 'T':{
       const now=Date.now();tapTimes.push(now);
       if(tapTimes.length>8)tapTimes.shift();
