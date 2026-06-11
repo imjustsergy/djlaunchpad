@@ -256,6 +256,9 @@ input[type=range]:hover::-webkit-slider-thumb{transform:scale(1.25)}
   <div class="sep"></div>
   <div class="hdim">Tracks: <b id="hdr-cnt">0</b></div>
   <div class="hright">Web Audio · File System Access</div>
+  <div class="sep"></div>
+  <button class="hbtn" id="btn-midi">⚡ MIDI</button>
+  <span id="lp-dot" style="font-size:9px;color:var(--dim);white-space:nowrap">○ LP</span>
 </div>
 
 <div id="lib">
@@ -390,6 +393,8 @@ input[type=range]:hover::-webkit-slider-thumb{transform:scale(1.25)}
   <div class="sti" style="margin-left:auto;font-size:8px;color:var(--dim)">
     Clic derecho hot cue = borrar · Ctrl+clic = mover
   </div>
+  <div class="sb-sep"></div>
+  <div class="sti"><span id="lp-sb" style="color:var(--dim)">Launchpad: desconectado</span></div>
 </div>
 
 <div id="toast"></div>
@@ -671,6 +676,7 @@ function seek(t) {
 
 function updBtn() {
   const b=$('btn-play'); b.textContent=playing?'⏸':'▶'; b.classList.toggle('on',playing);
+  lpSyncPlay();
 }
 function updSt() {
   if(!curBuf) {$('st').textContent='SIN CANCIÓN';return;}
@@ -684,6 +690,7 @@ function triggerMix(targetIdx) {
   if (isFading) return;
   isFading=true;
   $('btn-mix').classList.add('fading');
+  lpSyncMix();
 
   const doFade = async () => {
     // Ensure next buf
@@ -742,6 +749,7 @@ function triggerMix(targetIdx) {
       detectBPM(curBuf);
 
       isFading=false; $('btn-mix').classList.remove('fading');
+      lpSyncMix();
       toast(`Mezclado → ${tracks[curIdx].name}`);
       preloadNext();
 
@@ -877,6 +885,7 @@ function updLp() {
     const label=lpBars<1?`1/${Math.round(1/lpBars)}`:lpBars;
     st.textContent=`● LOOP ${label}`;st.classList.add('vis');
   }else{st.classList.remove('vis');}
+  lpSyncLoop();
 }
 
 /* ═══════════════════════ HOT CUES ═══════════════════════ */
@@ -892,6 +901,7 @@ function updHC() {
       b.className='hc empty'; b.style.cssText=''; b.textContent=`CUE ${i+1}`;
     }
   });
+  lpSyncHotCues();
 }
 
 /* ═══════════════════════ BPM ═══════════════════════ */
@@ -958,6 +968,7 @@ function updCueBtn() {
     b.textContent='CUE';
     b.style.cssText='';
   }
+  lpSyncCue();
 }
 
 $('btn-cue').addEventListener('click',()=>{
@@ -1030,6 +1041,7 @@ $('btn-automix').addEventListener('click',()=>{
   $('btn-automix').textContent=`Auto-Mix: ${autoMix?'ON':'OFF'}`;
   $('btn-automix').classList.toggle('on',autoMix);
   toast(`Auto-Mix ${autoMix?'ACTIVADO':'DESACTIVADO'}`);
+  lpSyncAutoMix();
 });
 $('s-trans').addEventListener('input',e=>{transSecs=+e.target.value;$('trans-v').textContent=transSecs+'s';});
 $('s-master').addEventListener('input',e=>{
@@ -1067,6 +1079,164 @@ document.addEventListener('keydown',e=>{
     }
   }
 });
+
+/* ═══════════════════════ LAUNCHPAD MINI ═══════════════════════
+   Protocol: Launchpad Mini MK1 / MK2 (classic)
+   Grid notes: row * 16 + col  (row 0 = top, col 0 = left)
+   Right-side buttons: row * 16 + 8
+   Top CC buttons: CC 104–111
+   LED color velocity: bits 5-4 = green (0-3), bits 1-0 = red (0-3)
+ ════════════════════════════════════════════════════════════════ */
+
+const C = {             // LED color palette
+  OFF:      0,
+  RED_LO:   1, RED:   3,
+  AMB_LO:  17, AMB:  51,
+  GRN_LO:  16, GRN:  48,
+  YEL_LO:  34, YEL:  50,
+  ORG:     35,          // red full + green med ≈ orange
+};
+
+// note = row * 16 + col
+const LN = {
+  PLAY:       2,   PREV:    1,   NEXT:    3,   START:   0,
+  CUE:        4,   MIX:     5,   AMIX:    6,
+  HC0:       16,   HC1:    17,   HC2:    18,   HC3:    19,   BACK:   20,
+  LP32:      32,   LP16:   33,   LP8:    34,   LP4:    35,   LPOFF:  36,
+  FX0:       48,   FX1:    49,   FX2:    50,   FX3:    51,
+};
+const FX_NAMES = ['filter','echo','reverb','flanger'];
+
+let lpIn = null, lpOut = null, lpMidi = null;
+
+async function connectLaunchpad() {
+  if (!navigator.requestMIDIAccess) { toast('Web MIDI no soportado en este navegador'); return; }
+  try {
+    lpMidi = await navigator.requestMIDIAccess({ sysex: false });
+    lpFind();
+    lpMidi.onstatechange = lpFind;
+  } catch(e) { toast('Permiso MIDI denegado'); console.error(e); }
+}
+
+function lpFind() {
+  lpIn = null; lpOut = null;
+  for (const p of lpMidi.inputs.values())
+    if (p.name.toLowerCase().includes('launchpad')) { lpIn = p; p.onmidimessage = lpMsg; }
+  for (const p of lpMidi.outputs.values())
+    if (p.name.toLowerCase().includes('launchpad')) lpOut = p;
+
+  const ok = lpIn && lpOut;
+  $('lp-dot').textContent = ok ? '● LP' : '○ LP';
+  $('lp-dot').style.color  = ok ? 'var(--green)' : 'var(--dim)';
+  $('lp-sb').textContent   = ok ? `Launchpad: ${lpIn.name}` : 'Launchpad: desconectado';
+  $('lp-sb').style.color   = ok ? 'var(--green)' : 'var(--dim)';
+  if (ok) { lpReset(); lpSyncAll(); toast('Launchpad Mini conectado'); }
+}
+
+/* ── LED control ── */
+function lpLed(note, color) {
+  if (lpOut) lpOut.send([0x90, note, color]);
+}
+function lpReset() {
+  if (lpOut) lpOut.send([0xB0, 0, 0]); // factory reset all LEDs
+}
+
+/* ── Full sync ── */
+function lpSyncAll() {
+  if (!lpOut) return;
+  lpLed(LN.START, C.GRN_LO);
+  lpLed(LN.PREV,  C.AMB_LO);
+  lpLed(LN.NEXT,  C.AMB_LO);
+  lpSyncPlay(); lpSyncCue(); lpSyncMix(); lpSyncAutoMix();
+  lpSyncHotCues(); lpSyncLoop(); lpSyncFx();
+}
+
+function lpSyncPlay()    { lpLed(LN.PLAY, playing   ? C.GRN   : C.AMB_LO); }
+function lpSyncCue()     { lpLed(LN.CUE,  prevPos!==null ? C.RED : C.AMB_LO); }
+function lpSyncMix()     { lpLed(LN.MIX,  isFading  ? C.GRN   : C.GRN_LO); }
+function lpSyncAutoMix() { lpLed(LN.AMIX, autoMix   ? C.GRN   : C.GRN_LO); }
+
+function lpSyncHotCues() {
+  const full=[C.RED,C.AMB,C.GRN,C.ORG], dim=[C.RED_LO,C.AMB_LO,C.GRN_LO,1];
+  [LN.HC0,LN.HC1,LN.HC2,LN.HC3].forEach((n,i)=>lpLed(n, hotCues[i]!==null ? full[i] : dim[i]));
+  lpLed(LN.BACK, prevPos!==null ? C.GRN : C.GRN_LO);
+}
+
+function lpSyncLoop() {
+  const keys=[LN.LP32,LN.LP16,LN.LP8,LN.LP4,LN.LPOFF];
+  const vals=[0.03125,0.0625,0.125,0.25,null];
+  keys.forEach((n,i)=>{
+    const on = vals[i]===null ? lpBars===null : lpBars===vals[i];
+    lpLed(n, on ? C.GRN : C.GRN_LO);
+  });
+}
+
+function lpSyncFx() {
+  [LN.FX0,LN.FX1,LN.FX2,LN.FX3].forEach((n,i)=>
+    lpLed(n, activeFx===FX_NAMES[i] ? C.AMB : C.AMB_LO));
+}
+
+/* ── Input handling ── */
+function lpMsg(e) {
+  const [st, note, vel] = e.data;
+  if ((st & 0xF0) === 0x90 && vel > 0) lpPress(note);
+}
+
+function lpPress(note) {
+  ensureAudio();
+  switch (note) {
+    case LN.START: offset=0; if(playing){pause();play();} break;
+    case LN.PREV:  if(curIdx>0) loadTrack(curIdx-1,playing); break;
+    case LN.NEXT:  if(curIdx<tracks.length-1) loadTrack(curIdx+1,playing); break;
+    case LN.PLAY:
+      if(playing) pause(); else if(curBuf) play(); break;
+    case LN.CUE:
+      if(!curBuf) break;
+      if(prevPos!==null) { returnToPrev(); break; }
+      if(!playing) { cuePoint=getCur(); toast(`CUE en ${fmtT(cuePoint)}`); }
+      else seek(cuePoint);
+      break;
+    case LN.MIX:  if(curBuf) triggerMix(); break;
+    case LN.AMIX:
+      autoMix=!autoMix;
+      $('btn-automix').textContent=`Auto-Mix: ${autoMix?'ON':'OFF'}`;
+      $('btn-automix').classList.toggle('on',autoMix);
+      toast(`Auto-Mix ${autoMix?'ON':'OFF'}`);
+      lpSyncAutoMix();
+      break;
+    case LN.HC0: jumpToHotCue(0); break;
+    case LN.HC1: jumpToHotCue(1); break;
+    case LN.HC2: jumpToHotCue(2); break;
+    case LN.HC3: jumpToHotCue(3); break;
+    case LN.BACK: returnToPrev(); break;
+    case LN.LP32:  if(curBuf) setLoop(0.03125); break;
+    case LN.LP16:  if(curBuf) setLoop(0.0625);  break;
+    case LN.LP8:   if(curBuf) setLoop(0.125);   break;
+    case LN.LP4:   if(curBuf) setLoop(0.25);    break;
+    case LN.LPOFF: clearLoop(); break;
+    case LN.FX0: case LN.FX1: case LN.FX2: case LN.FX3:
+      lpToggleFx(FX_NAMES[note - LN.FX0]); break;
+  }
+}
+
+function lpToggleFx(fx) {
+  const wasOn = activeFx === fx;
+  document.querySelectorAll('.fx').forEach(b=>b.classList.remove('on'));
+  $('fxamt-row').classList.remove('vis');
+  if (wasOn) {
+    activeFx = null; applyFx(null, 0);
+  } else {
+    activeFx = fx;
+    const btn = document.querySelector(`[data-fx="${fx}"]`);
+    if (btn) btn.classList.add('on');
+    $('fx-lbl').textContent = fx.toUpperCase();
+    $('fxamt-row').classList.add('vis');
+    applyFx(fx, +$('s-fxamt').value);
+  }
+  lpSyncFx();
+}
+
+$('btn-midi').addEventListener('click', connectLaunchpad);
 
 /* ═══════════════════════ TOAST ═══════════════════════ */
 let toastT=null;
