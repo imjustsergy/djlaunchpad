@@ -2,8 +2,8 @@ name: Build & Release
 
 on:
   push:
-    branches: [main]
-  workflow_dispatch:
+    tags:
+      - 'v*'
 
 jobs:
   build:
@@ -59,20 +59,13 @@ jobs:
           merge-multiple: true
           path: dist/
 
-      - name: Publish rolling release
-        uses: ncipollo/release-action@v1
+      - name: Create release
+        uses: softprops/action-gh-release@v2
         with:
-          tag: nightly
-          name: "DJ Panel — Nightly Build"
-          prerelease: true
-          allowUpdates: true
-          replacesArtifacts: true
-          makeLatest: false
-          token: ${{ github.token }}
-          artifacts: >-
-            dist/djlaunchpad-windows.exe,
-            dist/djlaunchpad-macos-intel,
-            dist/djlaunchpad-macos-arm64,
+          files: |
+            dist/djlaunchpad-windows.exe
+            dist/djlaunchpad-macos-intel
+            dist/djlaunchpad-macos-arm64
             dist/djlaunchpad-linux
           body: |
             ## Descarga tu plataforma
@@ -91,5 +84,3 @@ jobs:
             3. Se abre una terminal con la URL y el navegador se lanza automáticamente
             4. Carga tu directorio de canciones y empieza la sesión
             5. `Ctrl+C` para cerrar el servidor
-
-            > Build automático desde el último commit en `main`.
