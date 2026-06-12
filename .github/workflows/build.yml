@@ -59,52 +59,37 @@ jobs:
           merge-multiple: true
           path: dist/
 
-      - name: Publish latest release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          NOTES=$(cat <<'EOF'
-          ## Descarga tu plataforma
+      - name: Publish rolling release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: latest
+          name: "DJ Panel — Latest Build"
+          prerelease: true
+          allowUpdates: true
+          replacesArtifacts: true
+          makeLatest: false
+          token: ${{ github.token }}
+          artifacts: >-
+            dist/djlaunchpad-windows.exe,
+            dist/djlaunchpad-macos-intel,
+            dist/djlaunchpad-macos-arm64,
+            dist/djlaunchpad-linux
+          body: |
+            ## Descarga tu plataforma
 
-          | Plataforma | Archivo |
-          |---|---|
-          | Windows | `djlaunchpad-windows.exe` |
-          | macOS Intel | `djlaunchpad-macos-intel` |
-          | macOS Apple Silicon (M1/M2/M3) | `djlaunchpad-macos-arm64` |
-          | Linux | `djlaunchpad-linux` |
+            | Plataforma | Archivo |
+            |---|---|
+            | Windows | `djlaunchpad-windows.exe` |
+            | macOS Intel | `djlaunchpad-macos-intel` |
+            | macOS Apple Silicon (M1/M2/M3) | `djlaunchpad-macos-arm64` |
+            | Linux | `djlaunchpad-linux` |
 
-          ## Cómo usar
+            ## Cómo usar
 
-          1. Descarga el ejecutable para tu sistema
-          2. **macOS/Linux:** dale permisos con `chmod +x djlaunchpad-*` y ejecútalo
-          3. Se abre una terminal con la URL y el navegador se lanza automáticamente
-          4. Carga tu directorio de canciones y empieza la sesión
-          5. `Ctrl+C` para cerrar el servidor
+            1. Descarga el ejecutable para tu sistema
+            2. **macOS/Linux:** dale permisos con `chmod +x djlaunchpad-*` y ejecútalo
+            3. Se abre una terminal con la URL y el navegador se lanza automáticamente
+            4. Carga tu directorio de canciones y empieza la sesión
+            5. `Ctrl+C` para cerrar el servidor
 
-          > Build automático desde el último commit en `main`.
-          EOF
-          )
-
-          if gh release view latest &>/dev/null; then
-            # El release ya existe: actualizar notas y sobreescribir binarios
-            gh release edit latest \
-              --title "DJ Panel — Latest Build" \
-              --notes "$NOTES" \
-              --prerelease
-            gh release upload latest \
-              dist/djlaunchpad-windows.exe \
-              dist/djlaunchpad-macos-intel \
-              dist/djlaunchpad-macos-arm64 \
-              dist/djlaunchpad-linux \
-              --clobber
-          else
-            # Primera vez: crear el release con el tag
-            gh release create latest \
-              --title "DJ Panel — Latest Build" \
-              --notes "$NOTES" \
-              --prerelease \
-              dist/djlaunchpad-windows.exe \
-              dist/djlaunchpad-macos-intel \
-              dist/djlaunchpad-macos-arm64 \
-              dist/djlaunchpad-linux
-          fi
+            > Build automático desde el último commit en `main`.
