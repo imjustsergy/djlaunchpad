@@ -498,6 +498,9 @@ input[type=range]:hover::-webkit-slider-thumb{transform:scale(1.25)}
         <span class="leg loop">LOOPS</span>
         <span class="leg fx">FX</span>
       </div>
+      <div style="font-size:8px;color:var(--dim);margin-top:6px;max-width:364px">
+        ⚡ Modo Sliders: botón <b>SLDR</b> (o cualquier CC superior) activa una página donde cada columna del grid es un slider — VOL·PITCH·HI·MID·LO·FX·MASTER. Col 7 / CC superior vuelve a pads.
+      </div>
     </div>
     <div id="map-right">
       <div class="map-stitle">Acciones disponibles</div>
@@ -600,6 +603,9 @@ let bpm = null, cuePoint = 0, activeFx = null;
 let prevPos = null; // posición previa antes del último salto a cue
 let wfData = null;
 let autoMix = false, transSecs = 8, isFading = false;
+let autoMixScheduled = false;
+let lpPage = 'pads'; // 'pads' | 'sliders'
+let lastSliderSync = 0;
 let tapTimes = [], tapTimer = null;
 
 /* ═══════════════════════ LIBRARY ═══════════════════════ */
@@ -681,6 +687,7 @@ async function loadTrack(idx, autoPlay=false) {
     const buf = await ACX.decodeAudioData(ab);
 
     stop(false);
+    autoMixScheduled = false;
     curIdx=idx; curBuf=buf; duration=buf.duration; offset=0;
     hotCues=[null,null,null,null]; lpBars=null; lpStart=null; lpEnd=null;
     bpm=null; cuePoint=0; wfData=null; prevPos=null;
@@ -751,7 +758,7 @@ function play() {
   const thisSrc = curSrc;
   curSrc.onended = () => {
     if (thisSrc !== curSrc) return; // source reemplazado, ignorar
-    if (playing && !thisSrc.loop) {
+    if (playing && !thisSrc.loop && !isFading) {
       playing=false; offset=0;
       updBtn(); updSt();
       if (autoMix) triggerMix();
@@ -858,13 +865,14 @@ function triggerMix(targetIdx) {
       $('now-bpm').textContent='— BPM'; $('now-bpm').classList.remove('lit');
       detectBPM(curBuf);
 
+      autoMixScheduled = false;
       isFading=false; $('btn-mix').classList.remove('fading');
       lpSyncMix();
       toast(`Mezclado → ${tracks[curIdx].name}`);
       preloadNext();
 
       curSrc.onended = () => {
-        if (playing && curSrc && !curSrc.loop) {
+        if (playing && curSrc && !curSrc.loop && !isFading) {
           playing=false; offset=0; updBtn(); updSt();
           if (autoMix) triggerMix();
         }
@@ -1044,6 +1052,24 @@ function frame() {
   $('wftime').textContent=`${fmtT(cur)} / ${fmtT(duration)}`;
   $('wfrem').textContent=`-${fmtT(Math.max(0,duration-cur))}`;
   drawOverlay();
+
+  // Auto-mix pre-trigger: iniciar crossfade transSecs antes de que acabe la canción
+  if (autoMix && playing && !isFading && curBuf && !autoMixScheduled && duration > 0) {
+    const remaining = duration - cur;
+    if (remaining <= transSecs && remaining > 0.1) {
+      autoMixScheduled = true;
+      triggerMix();
+    }
+  }
+
+  // Launchpad slider page sync (throttled ~10fps para no saturar MIDI)
+  if (lpPage === 'sliders' && lpOut) {
+    const now = performance.now();
+    if (now - lastSliderSync > 100) {
+      lastSliderSync = now;
+      lpSliderSync();
+    }
+  }
 }
 frame();
 
@@ -1205,12 +1231,17 @@ const ACTIONS=[
   {id:'transport.next', lbl:'▷▷',     desc:'Canción siguiente',   cat:'transport'},
   {id:'transport.cue',  lbl:'CUE',    desc:'Punto CUE',           cat:'transport'},
   {id:'transport.mix',  lbl:'⇄ MIX',  desc:'Mezclar',             cat:'transport'},
-  {id:'transport.amix', lbl:'AUTO',   desc:'Auto-Mix ON/OFF',     cat:'transport'},
-  {id:'hotcue.0',       lbl:'HC 1',   desc:'Hot Cue 1',           cat:'hotcue'},
-  {id:'hotcue.1',       lbl:'HC 2',   desc:'Hot Cue 2',           cat:'hotcue'},
-  {id:'hotcue.2',       lbl:'HC 3',   desc:'Hot Cue 3',           cat:'hotcue'},
-  {id:'hotcue.3',       lbl:'HC 4',   desc:'Hot Cue 4',           cat:'hotcue'},
-  {id:'hotcue.back',    lbl:'↩ BACK', desc:'Volver posición',     cat:'hotcue'},
+  {id:'transport.amix',        lbl:'AUTO',    desc:'Auto-Mix ON/OFF',     cat:'transport'},
+  {id:'transport.slider-mode', lbl:'SLDR',    desc:'Modo Sliders',        cat:'transport'},
+  {id:'hotcue.0',       lbl:'HC 1',   desc:'Hot Cue 1 (ir)',       cat:'hotcue'},
+  {id:'hotcue.1',       lbl:'HC 2',   desc:'Hot Cue 2 (ir)',       cat:'hotcue'},
+  {id:'hotcue.2',       lbl:'HC 3',   desc:'Hot Cue 3 (ir)',       cat:'hotcue'},
+  {id:'hotcue.3',       lbl:'HC 4',   desc:'Hot Cue 4 (ir)',       cat:'hotcue'},
+  {id:'hotcue.back',    lbl:'↩ BACK', desc:'Volver posición',      cat:'hotcue'},
+  {id:'hotcue.set.0',   lbl:'SET 1',  desc:'Marcar Hot Cue 1',     cat:'hotcue'},
+  {id:'hotcue.set.1',   lbl:'SET 2',  desc:'Marcar Hot Cue 2',     cat:'hotcue'},
+  {id:'hotcue.set.2',   lbl:'SET 3',  desc:'Marcar Hot Cue 3',     cat:'hotcue'},
+  {id:'hotcue.set.3',   lbl:'SET 4',  desc:'Marcar Hot Cue 4',     cat:'hotcue'},
   {id:'loop.1/32',      lbl:'1/32',   desc:'Loop 1/32',           cat:'loop'},
   {id:'loop.1/16',      lbl:'1/16',   desc:'Loop 1/16',           cat:'loop'},
   {id:'loop.1/8',       lbl:'1/8',    desc:'Loop 1/8',            cat:'loop'},
@@ -1224,8 +1255,9 @@ const ACTIONS=[
 
 const DEFAULT_MAP={
   'transport.start':0,'transport.prev':1,'transport.play':2,'transport.next':3,
-  'transport.cue':4,'transport.mix':5,'transport.amix':6,
+  'transport.cue':4,'transport.mix':5,'transport.amix':6,'transport.slider-mode':7,
   'hotcue.0':16,'hotcue.1':17,'hotcue.2':18,'hotcue.3':19,'hotcue.back':20,
+  'hotcue.set.0':21,'hotcue.set.1':22,'hotcue.set.2':23,'hotcue.set.3':24,
   'loop.1/32':32,'loop.1/16':33,'loop.1/8':34,'loop.1/4':35,'loop.off':36,
   'fx.filter':48,'fx.echo':49,'fx.reverb':50,'fx.flanger':51,
 };
@@ -1263,33 +1295,120 @@ function lpReset(){if(lpOut)lpOut.send([0xB0,0,0]);}
 
 function lpSyncAll(){
   if(!lpOut)return;
+  if(lpPage==='sliders'){lpSliderSync();return;}
   lpLedA('transport.start',C.GRN_LO);lpLedA('transport.prev',C.AMB_LO);lpLedA('transport.next',C.AMB_LO);
+  lpLedA('transport.slider-mode',C.AMB_LO);
   lpSyncPlay();lpSyncCue();lpSyncMix();lpSyncAutoMix();lpSyncHotCues();lpSyncLoop();lpSyncFx();
 }
-function lpSyncPlay()    {lpLedA('transport.play',playing?C.GRN:C.AMB_LO);}
-function lpSyncCue()     {lpLedA('transport.cue',prevPos!==null?C.RED:C.AMB_LO);}
-function lpSyncMix()     {lpLedA('transport.mix',isFading?C.GRN:C.GRN_LO);}
-function lpSyncAutoMix() {lpLedA('transport.amix',autoMix?C.GRN:C.GRN_LO);}
+function lpSyncPlay()    {if(lpPage!=='pads'||!lpOut)return;lpLedA('transport.play',playing?C.GRN:C.AMB_LO);}
+function lpSyncCue()     {if(lpPage!=='pads'||!lpOut)return;lpLedA('transport.cue',prevPos!==null?C.RED:C.AMB_LO);}
+function lpSyncMix()     {if(lpPage!=='pads'||!lpOut)return;lpLedA('transport.mix',isFading?C.GRN:C.GRN_LO);}
+function lpSyncAutoMix() {if(lpPage!=='pads'||!lpOut)return;lpLedA('transport.amix',autoMix?C.GRN:C.GRN_LO);}
 function lpSyncHotCues(){
+  if(lpPage!=='pads'||!lpOut)return;
   const full=[C.RED,C.AMB,C.GRN,C.ORG],dim=[C.RED_LO,C.AMB_LO,C.GRN_LO,1];
   ['hotcue.0','hotcue.1','hotcue.2','hotcue.3'].forEach((id,i)=>lpLedA(id,hotCues[i]!==null?full[i]:dim[i]));
   lpLedA('hotcue.back',prevPos!==null?C.GRN:C.GRN_LO);
+  // Set cue buttons: dim when empty, bright amber when set
+  ['hotcue.set.0','hotcue.set.1','hotcue.set.2','hotcue.set.3'].forEach((id,i)=>
+    lpLedA(id,hotCues[i]!==null?C.AMB:C.AMB_LO));
 }
 function lpSyncLoop(){
+  if(lpPage!=='pads'||!lpOut)return;
   const ids=['loop.1/32','loop.1/16','loop.1/8','loop.1/4','loop.off'];
   const vals=[0.03125,0.0625,0.125,0.25,null];
   ids.forEach((id,i)=>{const on=vals[i]===null?lpBars===null:lpBars===vals[i];lpLedA(id,on?C.GRN:C.GRN_LO);});
 }
 function lpSyncFx(){
+  if(lpPage!=='pads'||!lpOut)return;
   ['fx.filter','fx.echo','fx.reverb','fx.flanger'].forEach(id=>
     lpLedA(id,activeFx===id.split('.')[1]?C.AMB:C.AMB_LO));
+}
+
+/* ── LAUNCHPAD SLIDER PAGE ──────────────────────────────────────
+   8 columnas × 8 filas. Cada columna = un slider. Presionar un pad
+   ajusta el valor al nivel de esa fila. Columna 7 = volver a pads.
+   Fila 0 = arriba (valor máx), fila 7 = abajo (valor mín).
+ ─────────────────────────────────────────────────────────────── */
+const SLIDERS=[
+  {id:'vol',    elId:'s-vol',    dispId:'v-vol',    min:0,   max:1,   color:C.GRN, colorDim:C.GRN_LO,
+   applyFn:v=>{if(volNode)volNode.gain.value=v;},
+   fmt:v=>`${Math.round(v*100)}%`},
+  {id:'pitch',  elId:'s-pit',    dispId:'v-pit',    min:-12, max:12,  color:C.AMB, colorDim:C.AMB_LO,
+   applyFn:v=>{if(curSrc)curSrc.playbackRate.value=Math.pow(2,v/12);},
+   fmt:v=>`${v>=0?'+':''}${v.toFixed(1)}st`},
+  {id:'hi',     elId:'s-hi',     dispId:'v-hi',     min:-20, max:20,  color:C.YEL_LO, colorDim:1,
+   applyFn:v=>{if(eqHi)eqHi.gain.value=v;},
+   fmt:v=>(v>0?'+':'')+v.toFixed(0)+'dB'},
+  {id:'mid',    elId:'s-mid',    dispId:'v-mid',    min:-20, max:20,  color:C.YEL_LO, colorDim:1,
+   applyFn:v=>{if(eqMid)eqMid.gain.value=v;},
+   fmt:v=>(v>0?'+':'')+v.toFixed(0)+'dB'},
+  {id:'lo',     elId:'s-lo',     dispId:'v-lo',     min:-20, max:20,  color:C.AMB, colorDim:C.AMB_LO,
+   applyFn:v=>{if(eqLo)eqLo.gain.value=v;},
+   fmt:v=>(v>0?'+':'')+v.toFixed(0)+'dB'},
+  {id:'fxamt',  elId:'s-fxamt',  dispId:'v-fxamt',  min:0,   max:1,   color:C.ORG, colorDim:C.AMB_LO,
+   applyFn:v=>{if(activeFx)applyFx(activeFx,v);},
+   fmt:v=>`${Math.round(v*100)}%`},
+  {id:'master', elId:'s-master', dispId:'master-v', min:0,   max:1.5, color:C.GRN, colorDim:C.GRN_LO,
+   applyFn:v=>{if(masterNode)masterNode.gain.value=v;},
+   fmt:v=>`${Math.round(v*100)}%`},
+];
+
+function lpSliderSync(){
+  if(!lpOut)return;
+  SLIDERS.forEach((s,col)=>{
+    const el=$(s.elId); if(!el)return;
+    const v=+el.value;
+    const pct=(v-s.min)/(s.max-s.min); // 0-1
+    const litPads=Math.round(pct*8);   // cuántos pads encendidos desde abajo
+    for(let row=0;row<8;row++){
+      const note=row*16+col;
+      const padLevel=7-row; // row7=nivel0(abajo), row0=nivel7(arriba)
+      lpLed(note, padLevel<litPads ? s.color : s.colorDim);
+    }
+  });
+  // Columna 7 = botón de vuelta a pads (rojo en la fila 0)
+  for(let row=0;row<8;row++) lpLed(row*16+7, row===0?C.RED:C.OFF);
+}
+
+function lpSliderPress(note){
+  const col=note%16, row=Math.floor(note/16);
+  if(col===7){toggleLpPage();return;}
+  if(col>=SLIDERS.length)return;
+  const s=SLIDERS[col];
+  // fila 7=fondo=mín+1/8, fila 0=techo=máx
+  const padLevel=7-row; // 0..7
+  const v=s.min+(padLevel+1)/8*(s.max-s.min);
+  const clamped=Math.max(s.min,Math.min(s.max,v));
+  const el=$(s.elId), dispEl=$(s.dispId);
+  if(el)el.value=clamped;
+  if(dispEl)dispEl.textContent=s.fmt(clamped);
+  s.applyFn(clamped);
+  lpSliderSync();
+  toast(`${s.id.toUpperCase()} → ${s.fmt(clamped)}`);
+}
+
+function toggleLpPage(){
+  lpPage=lpPage==='pads'?'sliders':'pads';
+  lpReset();
+  if(lpPage==='sliders'){lpSliderSync();toast('Launchpad: modo SLIDERS');}
+  else{lpSyncAll();toast('Launchpad: modo PADS');}
 }
 
 let learnActionId=null;
 
 function lpMsg(e){
   const[st,note,vel]=e.data;
-  if((st&0xF0)===0x90&&vel>0){if(learnActionId){assignLearn(note);return;}lpPress(note);}
+  // CC buttons (fila superior del Launchpad: CC104-111)
+  if((st&0xF0)===0xB0&&vel>0){
+    if(note>=104&&note<=111&&!learnActionId)toggleLpPage();
+    return;
+  }
+  if((st&0xF0)===0x90&&vel>0){
+    if(learnActionId){assignLearn(note);return;}
+    if(lpPage==='sliders'){lpSliderPress(note);return;}
+    lpPress(note);
+  }
 }
 
 function lpPress(note){const id=noteToActionId(note);if(id)dispatchAction(id);}
@@ -1313,9 +1432,14 @@ function dispatchAction(id){
       $('btn-automix').textContent=`Auto-Mix: ${autoMix?'ON':'OFF'}`;
       $('btn-automix').classList.toggle('on',autoMix);
       toast(`Auto-Mix ${autoMix?'ON':'OFF'}`);lpSyncAutoMix();break;
+    case 'transport.slider-mode':toggleLpPage();break;
     case 'hotcue.0':jumpToHotCue(0);break;case 'hotcue.1':jumpToHotCue(1);break;
     case 'hotcue.2':jumpToHotCue(2);break;case 'hotcue.3':jumpToHotCue(3);break;
     case 'hotcue.back':returnToPrev();break;
+    case 'hotcue.set.0':if(curBuf){hotCues[0]=getCur();updHC();toast(`Hot Cue 1 marcado en ${fmtT(hotCues[0])}`);}break;
+    case 'hotcue.set.1':if(curBuf){hotCues[1]=getCur();updHC();toast(`Hot Cue 2 marcado en ${fmtT(hotCues[1])}`);}break;
+    case 'hotcue.set.2':if(curBuf){hotCues[2]=getCur();updHC();toast(`Hot Cue 3 marcado en ${fmtT(hotCues[2])}`);}break;
+    case 'hotcue.set.3':if(curBuf){hotCues[3]=getCur();updHC();toast(`Hot Cue 4 marcado en ${fmtT(hotCues[3])}`);}break;
     case 'loop.1/32':if(curBuf)setLoop(0.03125);break;
     case 'loop.1/16':if(curBuf)setLoop(0.0625);break;
     case 'loop.1/8': if(curBuf)setLoop(0.125);break;
