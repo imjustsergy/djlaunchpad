@@ -4,26 +4,34 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      windows:
+        description: 'Windows (amd64)'
+        type: boolean
+        default: true
+      macos_intel:
+        description: 'macOS Intel (amd64)'
+        type: boolean
+        default: false
+      macos_arm:
+        description: 'macOS Apple Silicon (arm64)'
+        type: boolean
+        default: false
+      linux:
+        description: 'Linux (amd64)'
+        type: boolean
+        default: false
+
+# En push de tag  → solo Windows (comportamiento por defecto)
+# En workflow_dispatch → marca los que quieras desde la UI de GitHub Actions
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          - goos: windows
-            goarch: amd64
-            output: djlaunchpad-windows.exe
-          - goos: darwin
-            goarch: amd64
-            output: djlaunchpad-macos-intel
-          - goos: darwin
-            goarch: arm64
-            output: djlaunchpad-macos-arm64
-          - goos: linux
-            goarch: amd64
-            output: djlaunchpad-linux
 
+  # ── Windows ──────────────────────────────────────────────────────────────
+  build-windows:
+    if: github.event_name == 'push' || inputs.windows == true
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -32,25 +40,102 @@ jobs:
           go-version: '1.22'
           cache: false
 
-      - name: Build ${{ matrix.output }}
+      - name: Embed version info (Windows resource)
+        run: |
+          go install github.com/josephspurrier/goversioninfo/cmd/goversioninfo@latest
+          $(go env GOPATH)/bin/goversioninfo -o resource_windows.syso versioninfo.json
+
+      - name: Build Windows
         env:
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
+          GOOS: windows
+          GOARCH: amd64
           CGO_ENABLED: '0'
-        run: go build -ldflags="-s -w" -trimpath -o ${{ matrix.output }} .
+        run: go build -ldflags="-s -w" -trimpath -o djlaunchpad-windows.exe .
 
       - uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.output }}
-          path: ${{ matrix.output }}
-          retention-days: 1
+          name: djlaunchpad-windows.exe
+          path: djlaunchpad-windows.exe
 
+  # ── macOS Intel ───────────────────────────────────────────────────────────
+  build-macos-intel:
+    if: inputs.macos_intel == true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache: false
+
+      - name: Build macOS Intel
+        env:
+          GOOS: darwin
+          GOARCH: amd64
+          CGO_ENABLED: '0'
+        run: go build -ldflags="-s -w" -trimpath -o djlaunchpad-macos-intel .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: djlaunchpad-macos-intel
+          path: djlaunchpad-macos-intel
+
+  # ── macOS Apple Silicon ───────────────────────────────────────────────────
+  build-macos-arm:
+    if: inputs.macos_arm == true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache: false
+
+      - name: Build macOS Apple Silicon
+        env:
+          GOOS: darwin
+          GOARCH: arm64
+          CGO_ENABLED: '0'
+        run: go build -ldflags="-s -w" -trimpath -o djlaunchpad-macos-arm64 .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: djlaunchpad-macos-arm64
+          path: djlaunchpad-macos-arm64
+
+  # ── Linux ─────────────────────────────────────────────────────────────────
+  build-linux:
+    if: inputs.linux == true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache: false
+
+      - name: Build Linux
+        env:
+          GOOS: linux
+          GOARCH: amd64
+          CGO_ENABLED: '0'
+        run: go build -ldflags="-s -w" -trimpath -o djlaunchpad-linux .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: djlaunchpad-linux
+          path: djlaunchpad-linux
+
+  # ── Release (solo en push de tag) ─────────────────────────────────────────
   release:
-    needs: build
+    needs: [build-windows, build-macos-intel, build-macos-arm, build-linux]
+    if: always() && github.event_name == 'push' && github.ref_type == 'tag'
     runs-on: ubuntu-latest
     permissions:
       contents: write
-
     steps:
       - uses: actions/checkout@v4
 
@@ -62,13 +147,9 @@ jobs:
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            dist/djlaunchpad-windows.exe
-            dist/djlaunchpad-macos-intel
-            dist/djlaunchpad-macos-arm64
-            dist/djlaunchpad-linux
+          files: dist/**
           body: |
-            ## Descarga tu plataforma
+            ## Descargas
 
             | Plataforma | Archivo |
             |---|---|
@@ -77,10 +158,11 @@ jobs:
             | macOS Apple Silicon (M1/M2/M3) | `djlaunchpad-macos-arm64` |
             | Linux | `djlaunchpad-linux` |
 
-            ## Cómo usar
+            > **Windows:** si aparece advertencia de SmartScreen, haz clic en **"Más información" → "Ejecutar de todas formas"**. El binario es seguro pero no tiene firma de código comercial.
 
+            ## Cómo usar
             1. Descarga el ejecutable para tu sistema
-            2. **macOS/Linux:** dale permisos con `chmod +x djlaunchpad-*` y ejecútalo
-            3. Se abre una terminal con la URL y el navegador se lanza automáticamente
+            2. **macOS/Linux:** `chmod +x djlaunchpad-*` y ejecútalo
+            3. Se abre el navegador automáticamente con la URL local
             4. Carga tu directorio de canciones y empieza la sesión
-            5. `Ctrl+C` para cerrar el servidor
+            5. `Ctrl+C` en la terminal para cerrar
