@@ -245,6 +245,42 @@ input[type=range]:hover::-webkit-slider-thumb{transform:scale(1.25)}
 }
 #toast.show{transform:translateX(-50%) translateY(0);opacity:1}
 
+/* ── CONTENT WRAP ────────────────────── */
+#wrap{flex:1;min-height:0;display:flex;overflow:hidden}
+
+/* ── LEFT SIDEBAR ────────────────────── */
+#lib-sidebar{
+  width:200px;flex-shrink:0;
+  background:var(--s1);border-right:2px solid var(--s4);
+  display:flex;flex-direction:column;overflow:hidden;
+}
+#lib-sidebar-top{
+  padding:6px 10px 4px;display:flex;align-items:center;gap:8px;
+  border-bottom:1px solid var(--s4);flex-shrink:0;
+}
+#lib-vert{flex:1;overflow-y:auto;padding:2px 0}
+#lib-vert::-webkit-scrollbar{width:3px}
+#lib-vert::-webkit-scrollbar-thumb{background:var(--s4);border-radius:2px}
+.tv{
+  padding:5px 8px 5px 10px;cursor:pointer;
+  border-left:3px solid transparent;transition:background .1s;
+}
+.tv:hover{background:var(--s2)}
+.tv.cur{border-left-color:var(--achi);background:rgba(109,40,217,.08)}
+.tv.nxt{border-left-color:var(--green)}
+.tv-top{display:flex;gap:4px;overflow:hidden;align-items:baseline}
+.tv-n{font-size:9px;color:var(--dim);min-width:18px;flex-shrink:0}
+.tv-name{font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tv-tag{font-size:8px;color:var(--dim);margin-top:2px;letter-spacing:.05em}
+.tv.cur .tv-tag{color:var(--achi)}
+.tv.nxt .tv-tag{color:var(--green)}
+
+/* ── RIGHT SECTION ───────────────────── */
+#right{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden}
+
+/* Hide hot cues from main area */
+#hcues{display:none}
+
 /* ── MAPPING OVERLAY ─────────────────────── */
 #map-overlay{
   display:none;position:fixed;inset:0;z-index:50;
@@ -339,9 +375,22 @@ input[type=range]:hover::-webkit-slider-thumb{transform:scale(1.25)}
   <span id="lp-dot" style="font-size:9px;color:var(--dim);white-space:nowrap">○ LP</span>
 </div>
 
+<div id="wrap">
+<div id="lib-sidebar">
+  <div id="lib-sidebar-top">
+    <div class="lib-lbl">Biblioteca</div>
+    <div class="lib-cnt" id="lib-cnt-sb">0 tracks</div>
+  </div>
+  <div id="lib-vert">
+    <div style="color:var(--dim);font-size:10px;padding:12px 10px;line-height:1.5">
+      Carga un directorio
+    </div>
+  </div>
+</div>
+<div id="right">
 <div id="lib">
   <div class="lib-top">
-    <div class="lib-lbl">Biblioteca</div>
+    <div class="lib-lbl">Vista rápida</div>
     <div class="lib-cnt" id="lib-cnt">0 tracks</div>
   </div>
   <div id="lib-scroll">
@@ -457,6 +506,8 @@ input[type=range]:hover::-webkit-slider-thumb{transform:scale(1.25)}
     <div id="master-v">100%</div>
   </div>
 </div>
+</div><!-- /right -->
+</div><!-- /wrap -->
 
 <div id="sb">
   <div class="sti"><span class="ks">SPC</span> Play/Pause</div>
@@ -627,6 +678,7 @@ $('btn-load').addEventListener('click', async () => {
     renderLib();
     $('hdr-cnt').textContent = tracks.length;
     $('lib-cnt').textContent = tracks.length+' tracks';
+    $('lib-cnt-sb').textContent = tracks.length+' tracks';
     toast(`${tracks.length} canciones cargadas`);
     if (tracks.length) loadTrack(0);
   } catch(e) { if (e.name!=='AbortError') toast('Error al acceder al directorio'); }
@@ -634,7 +686,9 @@ $('btn-load').addEventListener('click', async () => {
 
 function renderLib() {
   const row = $('lib-row'); row.innerHTML = '';
+  const vert = $('lib-vert'); vert.innerHTML = '';
   tracks.forEach((t,i) => {
+    // Horizontal card
     const c = document.createElement('div');
     c.className='tc'; c.dataset.i=i;
     c.innerHTML=`
@@ -645,6 +699,17 @@ function renderLib() {
       <div class="tc-tag" id="tc-tag-${i}"></div>`;
     c.addEventListener('click', () => loadTrack(i));
     row.appendChild(c);
+    // Vertical sidebar item
+    const v = document.createElement('div');
+    v.className='tv'; v.dataset.vi=i;
+    v.innerHTML=`
+      <div class="tv-top">
+        <span class="tv-n">${t.num<9999?t.num:'?'}</span>
+        <span class="tv-name" title="${t.full}">${t.name}</span>
+      </div>
+      <div class="tv-tag" id="tv-tag-${i}"></div>`;
+    v.addEventListener('click', () => loadTrack(i));
+    vert.appendChild(v);
   });
 }
 
@@ -659,9 +724,22 @@ function hlLib() {
     else if (i===curIdx+1) tag.textContent='→ SIGUIENTE';
     else tag.textContent='';
   });
-  // Scroll library to current
+  document.querySelectorAll('.tv').forEach(v => {
+    const i = +v.dataset.vi;
+    v.classList.toggle('cur', i===curIdx);
+    v.classList.toggle('nxt', i===curIdx+1);
+    const tag = $(`tv-tag-${i}`);
+    if (!tag) return;
+    if (i===curIdx) tag.textContent='▶ reproduciendo';
+    else if (i===curIdx+1) tag.textContent='→ siguiente';
+    else tag.textContent='';
+  });
+  // Scroll horizontal library to current
   const curCard = document.querySelector('.tc.cur');
   if (curCard) curCard.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});
+  // Scroll vertical sidebar to current
+  const curVert = document.querySelector('.tv.cur');
+  if (curVert) curVert.scrollIntoView({behavior:'smooth',block:'nearest'});
   updNext();
 }
 
@@ -1584,6 +1662,15 @@ function resetMapping(){
 $('btn-mapping').addEventListener('click',openMapping);
 $('btn-map-close').addEventListener('click',closeMapping);
 $('btn-map-reset').addEventListener('click',resetMapping);
+
+/* ── Wheel scroll on horizontal library ── */
+(()=>{
+  const ls = document.getElementById('lib-scroll');
+  if (ls) ls.addEventListener('wheel', e => {
+    e.preventDefault();
+    ls.scrollLeft += e.deltaY || e.deltaX;
+  }, {passive:false});
+})();
 
 /* ═══════════════════════ TOAST ═══════════════════════ */
 let toastT=null;
