@@ -321,6 +321,59 @@ input[type=range]:hover::-webkit-slider-thumb{transform:scale(1.25)}
   padding:8px 14px;flex-shrink:0;
 }
 #map-status{font-size:10px;color:var(--dim);letter-spacing:.04em}
+
+/* ── SLIDER SETS CONFIG ──────────────── */
+#sldr-overlay{
+  display:none;position:fixed;inset:0;z-index:50;
+  background:var(--bg);flex-direction:column;overflow:hidden;
+}
+#sldr-overlay.vis{display:flex}
+#sldr-hdr{
+  background:var(--s1);border-bottom:2px solid var(--s4);
+  height:38px;padding:0 14px;display:flex;align-items:center;gap:10px;flex-shrink:0;
+}
+#sldr-body{
+  flex:1;min-height:0;overflow-y:auto;padding:16px 18px;
+  display:flex;flex-direction:column;gap:10px;
+}
+.ss-row{
+  background:var(--s1);border:1px solid var(--s4);border-radius:4px;
+  padding:10px 12px;display:flex;flex-direction:column;gap:8px;
+}
+.ss-row.active{border-color:var(--ac);}
+.ss-top{display:flex;align-items:center;gap:8px}
+.ss-name{
+  background:var(--s2);border:1px solid var(--s4);color:var(--text);
+  font-family:inherit;font-size:11px;padding:3px 7px;border-radius:2px;
+  outline:none;width:120px;
+}
+.ss-name:focus{border-color:var(--ac)}
+.ss-active-badge{font-size:8px;letter-spacing:.15em;color:var(--achi);font-weight:700;text-transform:uppercase}
+.ss-del{
+  margin-left:auto;background:transparent;border:1px solid var(--s5);
+  color:var(--dim);cursor:pointer;font-family:inherit;font-size:9px;
+  padding:2px 8px;border-radius:2px;transition:all .1s;
+}
+.ss-del:hover{background:var(--red);border-color:var(--red);color:#fff}
+.ss-cols{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.ss-col{display:flex;flex-direction:column;align-items:center;gap:3px}
+.ss-col-n{font-size:7px;letter-spacing:.12em;color:var(--dim);text-transform:uppercase}
+.ss-col-sel{
+  width:100%;background:var(--s2);border:1px solid var(--s4);
+  color:var(--text);font-family:inherit;font-size:9px;
+  padding:3px 2px;border-radius:2px;cursor:pointer;outline:none;
+}
+.ss-col-sel:focus{border-color:var(--ac)}
+#sldr-add{
+  align-self:flex-start;background:var(--s2);border:1px dashed var(--s4);
+  color:var(--dim);cursor:pointer;font-family:inherit;font-size:9px;
+  padding:6px 14px;border-radius:3px;letter-spacing:.08em;transition:all .1s;
+}
+#sldr-add:hover{background:var(--s3);border-style:solid;color:var(--text)}
+#sldr-footer{
+  background:var(--s1);border-top:1px solid var(--s4);
+  padding:8px 14px;flex-shrink:0;font-size:9px;color:var(--dim);letter-spacing:.04em;
+}
 </style>
 </head>
 <body>
@@ -335,6 +388,7 @@ input[type=range]:hover::-webkit-slider-thumb{transform:scale(1.25)}
   <div class="hright">Web Audio · File System Access</div>
   <div class="sep"></div>
   <button class="hbtn" id="btn-mapping">⊞ MAPPING</button>
+  <button class="hbtn" id="btn-sldr-cfg">⊟ SLIDERS</button>
   <button class="hbtn" id="btn-midi">⚡ MIDI</button>
   <span id="lp-dot" style="font-size:9px;color:var(--dim);white-space:nowrap">○ LP</span>
 </div>
@@ -509,6 +563,21 @@ input[type=range]:hover::-webkit-slider-thumb{transform:scale(1.25)}
   </div>
   <div id="map-footer">
     <div id="map-status">Haz clic en "Asignar" junto a una acción, luego presiona un botón en el Launchpad.</div>
+  </div>
+</div>
+
+<div id="sldr-overlay">
+  <div id="sldr-hdr">
+    <div class="logo">DJFX</div>
+    <div class="sep"></div>
+    <span style="font-size:10px;letter-spacing:.2em;color:var(--mid)">SLIDER SETS</span>
+    <div style="margin-left:auto;display:flex;gap:6px">
+      <button class="hbtn" id="btn-sldr-close">✕ Cerrar</button>
+    </div>
+  </div>
+  <div id="sldr-body"></div>
+  <div id="sldr-footer">
+    Col 7 del Launchpad en modo sliders = selector de set (hasta 7). Fila 0 = salir. Fila 1-7 = set 1-7. Cada columna 0-6 = control asignable.
   </div>
 </div>
 
@@ -1326,66 +1395,91 @@ function lpSyncFx(){
 }
 
 /* ── LAUNCHPAD SLIDER PAGE ──────────────────────────────────────
-   8 columnas × 8 filas. Cada columna = un slider. Presionar un pad
-   ajusta el valor al nivel de esa fila. Columna 7 = volver a pads.
-   Fila 0 = arriba (valor máx), fila 7 = abajo (valor mín).
+   Sistema de slider sets configurable. Cada set = 7 columnas asignables.
+   Col 7 del grid = navegación de sets. Fila 0 = salir, filas 1-7 = sets.
  ─────────────────────────────────────────────────────────────── */
-const SLIDERS=[
-  {id:'vol',    elId:'s-vol',    dispId:'v-vol',    min:0,   max:1,   color:C.GRN, colorDim:C.GRN_LO,
-   applyFn:v=>{if(volNode)volNode.gain.value=v;},
-   fmt:v=>`${Math.round(v*100)}%`},
-  {id:'pitch',  elId:'s-pit',    dispId:'v-pit',    min:-12, max:12,  color:C.AMB, colorDim:C.AMB_LO,
-   applyFn:v=>{if(curSrc)curSrc.playbackRate.value=Math.pow(2,v/12);},
-   fmt:v=>`${v>=0?'+':''}${v.toFixed(1)}st`},
-  {id:'hi',     elId:'s-hi',     dispId:'v-hi',     min:-20, max:20,  color:C.YEL_LO, colorDim:1,
-   applyFn:v=>{if(eqHi)eqHi.gain.value=v;},
-   fmt:v=>(v>0?'+':'')+v.toFixed(0)+'dB'},
-  {id:'mid',    elId:'s-mid',    dispId:'v-mid',    min:-20, max:20,  color:C.YEL_LO, colorDim:1,
-   applyFn:v=>{if(eqMid)eqMid.gain.value=v;},
-   fmt:v=>(v>0?'+':'')+v.toFixed(0)+'dB'},
-  {id:'lo',     elId:'s-lo',     dispId:'v-lo',     min:-20, max:20,  color:C.AMB, colorDim:C.AMB_LO,
-   applyFn:v=>{if(eqLo)eqLo.gain.value=v;},
-   fmt:v=>(v>0?'+':'')+v.toFixed(0)+'dB'},
-  {id:'fxamt',  elId:'s-fxamt',  dispId:'v-fxamt',  min:0,   max:1,   color:C.ORG, colorDim:C.AMB_LO,
-   applyFn:v=>{if(activeFx)applyFx(activeFx,v);},
-   fmt:v=>`${Math.round(v*100)}%`},
-  {id:'master', elId:'s-master', dispId:'master-v', min:0,   max:1.5, color:C.GRN, colorDim:C.GRN_LO,
-   applyFn:v=>{if(masterNode)masterNode.gain.value=v;},
-   fmt:v=>`${Math.round(v*100)}%`},
-];
+
+// Catálogo completo de controles disponibles para asignar a columnas
+const SLIDER_CONTROLS={
+  'none':  {id:'none',  label:'—',      min:0,  max:1,   def:0,   color:C.OFF,    colorDim:C.OFF,
+            applyFn:()=>{},                          fmt:()=>'—',              elId:null,      dispId:null},
+  'vol':   {id:'vol',   label:'VOL',    min:0,  max:1,   def:0.85,color:C.GRN,    colorDim:C.GRN_LO,
+            applyFn:v=>{if(volNode)volNode.gain.value=v;},        fmt:v=>`${Math.round(v*100)}%`,  elId:'s-vol',   dispId:'v-vol'},
+  'pitch': {id:'pitch', label:'PITCH',  min:-12,max:12,  def:0,   color:C.AMB,    colorDim:C.AMB_LO,
+            applyFn:v=>{if(curSrc)curSrc.playbackRate.value=Math.pow(2,v/12);},
+            fmt:v=>`${v>=0?'+':''}${v.toFixed(1)}st`,                          elId:'s-pit',   dispId:'v-pit'},
+  'hi':    {id:'hi',    label:'HI',     min:-20,max:20,  def:0,   color:C.YEL_LO, colorDim:1,
+            applyFn:v=>{if(eqHi)eqHi.gain.value=v;},              fmt:v=>(v>0?'+':'')+v.toFixed(0)+'dB', elId:'s-hi',  dispId:'v-hi'},
+  'mid':   {id:'mid',   label:'MID',    min:-20,max:20,  def:0,   color:C.YEL_LO, colorDim:1,
+            applyFn:v=>{if(eqMid)eqMid.gain.value=v;},            fmt:v=>(v>0?'+':'')+v.toFixed(0)+'dB', elId:'s-mid', dispId:'v-mid'},
+  'lo':    {id:'lo',    label:'LO',     min:-20,max:20,  def:0,   color:C.AMB,    colorDim:C.AMB_LO,
+            applyFn:v=>{if(eqLo)eqLo.gain.value=v;},              fmt:v=>(v>0?'+':'')+v.toFixed(0)+'dB', elId:'s-lo',  dispId:'v-lo'},
+  'fxamt': {id:'fxamt', label:'FX AMT', min:0,  max:1,   def:0.5, color:C.ORG,    colorDim:C.AMB_LO,
+            applyFn:v=>{if(activeFx)applyFx(activeFx,v);},        fmt:v=>`${Math.round(v*100)}%`, elId:'s-fxamt', dispId:'v-fxamt'},
+  'master':{id:'master',label:'MASTER', min:0,  max:1.5, def:1,   color:C.GRN,    colorDim:C.GRN_LO,
+            applyFn:v=>{if(masterNode)masterNode.gain.value=v;},  fmt:v=>`${Math.round(v*100)}%`, elId:'s-master',dispId:'master-v'},
+  'trans': {id:'trans', label:'TRANS',  min:2,  max:30,  def:8,   color:C.AMB_LO, colorDim:1,
+            applyFn:v=>{transSecs=Math.round(v);const e=$('s-trans');if(e)e.value=v;$('trans-v').textContent=Math.round(v)+'s';},
+            fmt:v=>Math.round(v)+'s',                                          elId:'s-trans', dispId:'trans-v'},
+};
+
+const DEF_SLIDER_SETS=[{name:'Set 1',cols:['vol','pitch','hi','mid','lo','fxamt','master']}];
+let sliderSets=JSON.parse(localStorage.getItem('djfx-slider-sets')||'null')||
+  DEF_SLIDER_SETS.map(s=>({...s,cols:[...s.cols]}));
+let activeSetIdx=0;
+
+function getActiveSliders(){
+  const set=sliderSets[Math.min(activeSetIdx,sliderSets.length-1)];
+  return (set.cols||[]).map(id=>SLIDER_CONTROLS[id]||SLIDER_CONTROLS['none']);
+}
+function saveSliderSets(){localStorage.setItem('djfx-slider-sets',JSON.stringify(sliderSets));}
 
 function lpSliderSync(){
   if(!lpOut)return;
-  SLIDERS.forEach((s,col)=>{
-    const el=$(s.elId); if(!el)return;
-    const v=+el.value;
-    const pct=(v-s.min)/(s.max-s.min); // 0-1
-    const litPads=Math.round(pct*8);   // cuántos pads encendidos desde abajo
+  const sliders=getActiveSliders();
+  sliders.forEach((s,col)=>{
+    const el=s.elId?$(s.elId):null;
+    const v=el?+el.value:s.def;
+    const pct=(v-s.min)/(s.max-s.min);
+    const litPads=Math.round(pct*8);
     for(let row=0;row<8;row++){
       const note=row*16+col;
-      const padLevel=7-row; // row7=nivel0(abajo), row0=nivel7(arriba)
-      lpLed(note, padLevel<litPads ? s.color : s.colorDim);
+      const padLevel=7-row;
+      lpLed(note,padLevel<litPads?s.color:s.colorDim);
     }
   });
-  // Columna 7 = botón de vuelta a pads (rojo en la fila 0)
-  for(let row=0;row<8;row++) lpLed(row*16+7, row===0?C.RED:C.OFF);
+  // Col 7: fila 0=salir(rojo), filas 1-7=sets
+  lpLed(7,C.RED);
+  for(let row=1;row<8;row++){
+    const si=row-1;
+    lpLed(row*16+7, si<sliderSets.length?(si===activeSetIdx?C.GRN:C.GRN_LO):C.OFF);
+  }
 }
 
 function lpSliderPress(note){
-  const col=note%16, row=Math.floor(note/16);
-  if(col===7){toggleLpPage();return;}
-  if(col>=SLIDERS.length)return;
-  const s=SLIDERS[col];
-  // fila 7=fondo=mín+1/8, fila 0=techo=máx
-  const padLevel=7-row; // 0..7
+  const col=note%16,row=Math.floor(note/16);
+  if(col===7){
+    if(row===0){toggleLpPage();return;}
+    const si=row-1;
+    if(si<sliderSets.length){
+      activeSetIdx=si;lpSliderSync();
+      toast(`Slider set: ${sliderSets[activeSetIdx].name}`);
+    }
+    return;
+  }
+  const sliders=getActiveSliders();
+  if(col>=sliders.length)return;
+  const s=sliders[col];
+  if(s.id==='none')return;
+  const padLevel=7-row;
   const v=s.min+(padLevel+1)/8*(s.max-s.min);
   const clamped=Math.max(s.min,Math.min(s.max,v));
-  const el=$(s.elId), dispEl=$(s.dispId);
+  const el=s.elId?$(s.elId):null,dispEl=s.dispId?$(s.dispId):null;
   if(el)el.value=clamped;
   if(dispEl)dispEl.textContent=s.fmt(clamped);
   s.applyFn(clamped);
   lpSliderSync();
-  toast(`${s.id.toUpperCase()} → ${s.fmt(clamped)}`);
+  toast(`${s.label} → ${s.fmt(clamped)}`);
 }
 
 function toggleLpPage(){
@@ -1467,6 +1561,78 @@ function lpToggleFx(fx){
 }
 
 $('btn-midi').addEventListener('click',connectLaunchpad);
+
+/* ═══════════════════════ SLIDER SETS CONFIG ═══════════════════════ */
+
+function openSldrCfg(){renderSldrCfg();$('sldr-overlay').classList.add('vis');}
+function closeSldrCfg(){$('sldr-overlay').classList.remove('vis');}
+
+function renderSldrCfg(){
+  const body=$('sldr-body');body.innerHTML='';
+  const ctrlOpts=Object.keys(SLIDER_CONTROLS);
+
+  sliderSets.forEach((set,si)=>{
+    const row=document.createElement('div');
+    row.className='ss-row'+(si===activeSetIdx?' active':'');
+
+    // Header row: nombre + botón activar + botón borrar
+    const top=document.createElement('div');top.className='ss-top';
+    const nameIn=document.createElement('input');
+    nameIn.className='ss-name';nameIn.value=set.name;nameIn.placeholder='Nombre del set';
+    nameIn.addEventListener('input',e=>{sliderSets[si].name=e.target.value;saveSliderSets();});
+    const badge=document.createElement('span');badge.className='ss-active-badge';
+    badge.textContent=si===activeSetIdx?'● activo':'';
+    const actBtn=document.createElement('button');actBtn.className='ma-btn';
+    actBtn.textContent='Activar';actBtn.style.display=si===activeSetIdx?'none':'';
+    actBtn.addEventListener('click',()=>{
+      activeSetIdx=si;if(lpPage==='sliders')lpSliderSync();
+      renderSldrCfg();toast(`Set activo: ${sliderSets[si].name}`);
+    });
+    const delBtn=document.createElement('button');delBtn.className='ss-del';delBtn.textContent='✕';
+    delBtn.addEventListener('click',()=>{
+      if(sliderSets.length<=1){toast('Necesitas al menos un set');return;}
+      sliderSets.splice(si,1);
+      if(activeSetIdx>=sliderSets.length)activeSetIdx=sliderSets.length-1;
+      saveSliderSets();renderSldrCfg();if(lpPage==='sliders')lpSliderSync();
+    });
+    top.append(nameIn,badge,actBtn,delBtn);
+
+    // 7 selectores de columna
+    const colsEl=document.createElement('div');colsEl.className='ss-cols';
+    for(let ci=0;ci<7;ci++){
+      const colEl=document.createElement('div');colEl.className='ss-col';
+      const lbl=document.createElement('div');lbl.className='ss-col-n';lbl.textContent=`COL ${ci}`;
+      const sel=document.createElement('select');sel.className='ss-col-sel';
+      ctrlOpts.forEach(id=>{
+        const opt=document.createElement('option');
+        opt.value=id;opt.textContent=SLIDER_CONTROLS[id].label;
+        if((set.cols[ci]||'none')===id)opt.selected=true;
+        sel.appendChild(opt);
+      });
+      sel.addEventListener('change',e=>{
+        sliderSets[si].cols[ci]=e.target.value;saveSliderSets();
+        if(lpPage==='sliders'&&si===activeSetIdx)lpSliderSync();
+      });
+      colEl.append(lbl,sel);colsEl.appendChild(colEl);
+    }
+    row.append(top,colsEl);body.appendChild(row);
+  });
+
+  // Botón añadir set (máx 7 = filas disponibles en col 7 del launchpad)
+  if(sliderSets.length<7){
+    const addBtn=document.createElement('button');
+    addBtn.id='sldr-add';addBtn.textContent='+ Añadir set';
+    addBtn.addEventListener('click',()=>{
+      const defaults=['vol','mid','lo','hi','fxamt','master','none'];
+      sliderSets.push({name:`Set ${sliderSets.length+1}`,cols:[...defaults]});
+      saveSliderSets();renderSldrCfg();
+    });
+    body.appendChild(addBtn);
+  }
+}
+
+$('btn-sldr-cfg').addEventListener('click',openSldrCfg);
+$('btn-sldr-close').addEventListener('click',closeSldrCfg);
 
 /* ═══════════════════════ MAPPING PAGE ═══════════════════════ */
 
