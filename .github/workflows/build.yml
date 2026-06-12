@@ -65,8 +65,8 @@ jobs:
       - name: Publish rolling release
         uses: ncipollo/release-action@v1
         with:
-          tag: latest
-          name: "DJ Panel — Latest Build"
+          tag: nightly
+          name: "DJ Panel — Nightly Build"
           prerelease: true
           allowUpdates: true
           replacesArtifacts: true
